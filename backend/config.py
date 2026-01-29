@@ -20,7 +20,12 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 # Paths
 ROOT_DIR = Path(__file__).parent.parent
 STATIC_DIR = ROOT_DIR / "static"
-DATA_DIR = ROOT_DIR / "data"
+
+# Data directory - use RENDER_DATA_DIR if on Render, otherwise local data/
+if os.getenv("RENDER"):
+    DATA_DIR = Path("/opt/render/project/src/data")
+else:
+    DATA_DIR = ROOT_DIR / "data"
 
 # Ensure data directory exists
-DATA_DIR.mkdir(exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
