@@ -262,6 +262,52 @@
             }
         }
 
+        // Auto-save game settings when host makes changes
+        async function saveGameSettings() {
+            if (!currentGame || !isHostOfGame(currentGame.id)) return;
+
+            const title = document.getElementById('game-title').value || 'Volleyball Game';
+            const venueId = document.getElementById('venue-select').value;
+            const venueObj = window.appConfig?.venues?.find(v => v.id === venueId);
+            const venueName = venueObj ? venueObj.name : venueId;
+            const minPlayers = venueObj?.min_players || 4;
+            const maxPlayers = venueObj?.max_players || 12;
+
+            const selectedDays = [];
+            if (document.getElementById('day-saturday')?.checked) selectedDays.push('saturday');
+            if (document.getElementById('day-sunday')?.checked) selectedDays.push('sunday');
+
+            if (selectedDays.length === 0) {
+                showError('Please select at least one day');
+                // Re-check at least one checkbox
+                document.getElementById('day-saturday').checked = true;
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/games/${currentGame.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        venue: venueName,
+                        game_date: currentGame.game_date,
+                        min_players: minPlayers,
+                        max_players: maxPlayers,
+                        selected_days: selectedDays,
+                        organizer_name: currentGame.organizer_name
+                    })
+                });
+                currentGame = await res.json();
+                showToast('Saved');
+                // Update display (tabs, etc.)
+                displayGame();
+            } catch (e) {
+                console.error('Error saving game:', e);
+                showError('Failed to save changes');
+            }
+        }
+
         function displayGame() {
             if (!currentGame) return;
             document.getElementById('game-header').textContent = currentGame.title || 'Set Game Details';
@@ -790,6 +836,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadConfig();
             init();
+
+            // Auto-save when host changes settings
+            document.getElementById('day-saturday').addEventListener('change', saveGameSettings);
+            document.getElementById('day-sunday').addEventListener('change', saveGameSettings);
+            document.getElementById('game-title').addEventListener('blur', saveGameSettings);
+            document.getElementById('venue-select').addEventListener('change', saveGameSettings);
         });
     </script>
 </head>
