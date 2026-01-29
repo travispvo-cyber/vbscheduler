@@ -179,6 +179,7 @@
             }
             setupEventListeners();
             renderGameHistory();
+            loadRecentGames();
         }
 
         async function loadGame(gameId) {
@@ -198,11 +199,13 @@
                 displayGame();
                 await loadPlayers();
                 renderGameHistory();
+                loadRecentGames();
             } catch (e) {
                 console.error('Error loading game:', e);
                 localStorage.removeItem('currentGameId');
                 removeFromGameHistory(gameId);
                 renderGameHistory();
+                loadRecentGames();
             }
         }
 
@@ -255,6 +258,7 @@
                 addToGameHistory(currentGame.id, title, venueName, gameDateStr, true);
                 displayGame();
                 renderGameHistory();
+                loadRecentGames();
                 showShareLink();
             } catch (e) {
                 console.error('Error creating game:', e);
@@ -703,6 +707,54 @@
             }).join('');
         }
 
+        async function loadRecentGames() {
+            const container = document.getElementById('recent-games-list');
+            const section = document.getElementById('recent-games-section');
+            if (!container) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/games?days=14&limit=10`);
+                if (!res.ok) throw new Error('Failed to load games');
+                const games = await res.json();
+
+                if (games.length === 0) {
+                    section?.classList.add('hidden');
+                    return;
+                }
+
+                section?.classList.remove('hidden');
+
+                // Get local history to check which ones we've visited
+                const history = getGameHistory();
+                const visitedIds = new Set(history.map(g => g.id));
+
+                container.innerHTML = games.map(game => {
+                    const isVisited = visitedIds.has(game.id);
+                    const isCurrentGame = currentGame?.id === game.id;
+                    const gameDate = new Date(game.game_date);
+                    const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+                    return `
+                    <div onclick="loadGame('${game.id}')"
+                         class="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all
+                                ${isCurrentGame ? 'bg-primary/10 border-2 border-primary' : 'bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800'}">
+                        <div class="w-10 h-10 rounded-lg ${isCurrentGame ? 'bg-primary/20' : 'bg-gray-200 dark:bg-gray-700'} flex items-center justify-center">
+                            <span class="material-symbols-outlined text-${isCurrentGame ? 'primary' : 'gray-400'} text-lg">sports_volleyball</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[#111418] dark:text-white text-sm font-semibold truncate">${game.title}</p>
+                            <p class="text-gray-500 dark:text-gray-400 text-xs">${game.venue} · ${dateStr}</p>
+                        </div>
+                        ${isVisited ? '<span class="material-symbols-outlined text-primary text-sm">check_circle</span>' : ''}
+                    </div>`;
+                }).join('');
+
+            } catch (e) {
+                console.error('Error loading recent games:', e);
+                container.innerHTML = '<p class="text-center text-gray-400 py-4 text-sm">Could not load games</p>';
+            }
+        }
+
         function confirmDeleteGame(gameId, gameTitle) {
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4';
@@ -760,6 +812,7 @@
                 }
 
                 renderGameHistory();
+                loadRecentGames();
                 showToast('Game deleted');
 
             } catch (e) {
@@ -874,6 +927,11 @@
             </a>
         </div>
     </nav>
+    <!-- Apple-style Hero Header -->
+    <div id="hero-section" class="text-center py-8 px-4 max-w-md mx-auto">
+        <h1 class="text-4xl font-bold text-[#111418] dark:text-white tracking-tight">VB Scheduler</h1>
+        <p class="text-lg text-gray-500 dark:text-gray-400 mt-2">for you unresponsive !@#$s</p>
+    </div>
     <main class="flex-1 max-w-md mx-auto w-full pb-32">
         <!-- Game Title -->
         <div class="px-4 py-4">
@@ -990,6 +1048,17 @@
                     <span class="material-symbols-outlined text-sm">edit_calendar</span>
                     Update your availability
                 </button>
+            </div>
+        </div>
+
+        <!-- Recent Games Section -->
+        <div id="recent-games-section" class="pt-6">
+            <div class="flex items-center justify-between px-4 pb-3">
+                <h3 class="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Recent Games</h3>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Last 14 days</span>
+            </div>
+            <div id="recent-games-list" class="px-4 space-y-2">
+                <p class="text-center text-gray-400 py-4 text-sm">Loading...</p>
             </div>
         </div>
 

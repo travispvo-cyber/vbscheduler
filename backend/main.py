@@ -94,6 +94,32 @@ def create_game(game: GameCreate):
         return GameResponse(**data)
 
 
+@app.get("/api/games", response_model=list[GameResponse])
+def list_games(days: int = 14, limit: int = 20):
+    """List recent games from the last N days."""
+    from datetime import datetime, timedelta
+    cutoff_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM games
+            WHERE game_date >= ?
+            ORDER BY game_date DESC, created_at DESC
+            LIMIT ?
+        """, (cutoff_date, limit))
+        rows = cursor.fetchall()
+
+        results = []
+        for row in rows:
+            data = dict(row)
+            data.pop('organizer_pin', None)
+            if data.get('selected_days'):
+                data['selected_days'] = json.loads(data['selected_days'])
+            results.append(GameResponse(**data))
+        return results
+
+
 @app.get("/api/games/{game_id}", response_model=GameResponse)
 def get_game(game_id: str):
     with get_db() as conn:
