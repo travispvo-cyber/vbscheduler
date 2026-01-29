@@ -8,7 +8,8 @@ from models import (
     GameCreate, GameResponse,
     PlayerCreate, PlayerResponse,
     AvailabilityCreate, AvailabilityBulkCreate, AvailabilityResponse,
-    HeatmapSlot, HeatmapResponse
+    HeatmapSlot, HeatmapResponse,
+    OrganizerAuth
 )
 from constants import VENUES, TIME_SLOTS, DAYS, MAX_PLAYERS_DEFAULT, MAX_PLAYERS_MIN, MAX_PLAYERS_MAX
 
@@ -46,13 +47,16 @@ def create_game(game: GameCreate):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO games (id, title, venue, game_date, start_time, end_time, max_players, organizer_name)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (game_id, game.title, game.venue, game.game_date, game.start_time, game.end_time, game.max_players, game.organizer_name))
+            INSERT INTO games (id, title, venue, game_date, start_time, end_time, max_players, organizer_name, organizer_pin)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (game_id, game.title, game.venue, game.game_date, game.start_time, game.end_time, game.max_players, game.organizer_name, game.organizer_pin))
 
         cursor.execute("SELECT * FROM games WHERE id = ?", (game_id,))
         row = cursor.fetchone()
-        return GameResponse(**dict(row))
+        # Don't return pin in response
+        data = dict(row)
+        data.pop('organizer_pin', None)
+        return GameResponse(**data)
 
 
 @app.get("/api/games/{game_id}", response_model=GameResponse)
@@ -63,7 +67,9 @@ def get_game(game_id: str):
         row = cursor.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Game not found")
-        return GameResponse(**dict(row))
+        data = dict(row)
+        data.pop('organizer_pin', None)
+        return GameResponse(**data)
 
 
 @app.put("/api/games/{game_id}", response_model=GameResponse)
@@ -71,16 +77,18 @@ def update_game(game_id: str, game: GameCreate):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            UPDATE games SET title=?, venue=?, game_date=?, start_time=?, end_time=?, max_players=?, organizer_name=?
+            UPDATE games SET title=?, venue=?, game_date=?, start_time=?, end_time=?, max_players=?, organizer_name=?, organizer_pin=?
             WHERE id = ?
-        """, (game.title, game.venue, game.game_date, game.start_time, game.end_time, game.max_players, game.organizer_name, game_id))
+        """, (game.title, game.venue, game.game_date, game.start_time, game.end_time, game.max_players, game.organizer_name, game.organizer_pin, game_id))
 
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Game not found")
 
         cursor.execute("SELECT * FROM games WHERE id = ?", (game_id,))
         row = cursor.fetchone()
-        return GameResponse(**dict(row))
+        data = dict(row)
+        data.pop('organizer_pin', None)
+        return GameResponse(**data)
 
 
 @app.delete("/api/games/{game_id}")
@@ -91,6 +99,25 @@ def delete_game(game_id: str):
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Game not found")
         return {"message": "Game deleted"}
+
+
+@app.post("/api/games/{game_id}/verify-pin")
+def verify_organizer_pin(game_id: str, auth: OrganizerAuth):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT organizer_pin FROM games WHERE id = ?", (game_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        if not row["organizer_pin"]:
+            # No PIN set, allow access
+            return {"verified": True, "message": "No PIN required"}
+
+        if row["organizer_pin"] != auth.pin:
+            raise HTTPException(status_code=401, detail="Invalid PIN")
+
+        return {"verified": True}
 
 
 # ============ PLAYERS ============

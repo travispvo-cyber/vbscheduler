@@ -36,7 +36,8 @@ def init_db():
                 end_time TEXT DEFAULT '17:00',
                 max_players INTEGER DEFAULT 12,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                organizer_name TEXT
+                organizer_name TEXT,
+                organizer_pin TEXT
             )
         """)
 
@@ -68,6 +69,12 @@ def init_db():
                 UNIQUE(game_id, player_id, day, time_slot)
             )
         """)
+
+        # Migration: Add organizer_pin if not exists
+        try:
+            cursor.execute("ALTER TABLE games ADD COLUMN organizer_pin TEXT")
+        except:
+            pass  # Column already exists
 
         conn.commit()
 

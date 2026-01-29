@@ -14,6 +14,7 @@ class GameCreate(BaseModel):
     end_time: str = Field(default="17:00", pattern=r"^\d{2}:\d{2}$")
     max_players: int = Field(default=MAX_PLAYERS_DEFAULT, ge=MAX_PLAYERS_MIN, le=MAX_PLAYERS_MAX)
     organizer_name: Optional[str] = Field(default=None, max_length=PLAYER_NAME_MAX_LENGTH)
+    organizer_pin: Optional[str] = Field(default=None, min_length=4, max_length=6, pattern=r"^\d{4,6}$")
 
     @field_validator('title')
     @classmethod
@@ -95,3 +96,7 @@ class HeatmapSlot(BaseModel):
 class HeatmapResponse(BaseModel):
     day: str
     slots: list[HeatmapSlot]
+
+
+class OrganizerAuth(BaseModel):
+    pin: str = Field(..., min_length=4, max_length=6, pattern=r"^\d{4,6}$")
