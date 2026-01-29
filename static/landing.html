@@ -87,12 +87,12 @@
 
         async function createGame() {
             const title = document.getElementById('game-title').value || 'Volleyball Game';
-            const venue = document.getElementById('venue-select').value;
-            const venueNames = {
-                'beach': 'Main Beach Courts (Sand)',
-                'indoor': 'Central Sports Gym (Hardwood)',
-                'park': 'Sunset Park Area 4'
-            };
+            const venueId = document.getElementById('venue-select').value;
+
+            // Get venue name from config
+            const venueObj = window.appConfig?.venues?.find(v => v.id === venueId);
+            const venueName = venueObj ? venueObj.name : venueId;
+
             const dayRadio = document.querySelector('input[name="game_day"]:checked');
             const day = dayRadio ? dayRadio.value : 'Saturday';
 
@@ -110,7 +110,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         title: title,
-                        venue: venueNames[venue] || venue,
+                        venue: venueName,
                         game_date: gameDateStr,
                         organizer_name: 'Organizer'
                     })
@@ -130,15 +130,13 @@
             document.getElementById('game-header').textContent = currentGame.title || 'Set Game Details';
             document.getElementById('game-title').value = currentGame.title || '';
 
-            // Update venue dropdown if game loaded
-            const venueMap = {
-                'Main Beach Courts (Sand)': 'beach',
-                'Central Sports Gym (Hardwood)': 'indoor',
-                'Sunset Park Area 4': 'park'
-            };
+            // Update venue dropdown if game loaded (match by name from config)
             const venueSelect = document.getElementById('venue-select');
-            if (venueMap[currentGame.venue]) {
-                venueSelect.value = venueMap[currentGame.venue];
+            if (window.appConfig?.venues) {
+                const venueObj = window.appConfig.venues.find(v => v.name === currentGame.venue);
+                if (venueObj) {
+                    venueSelect.value = venueObj.id;
+                }
             }
 
             // Show share button, hide create button
@@ -261,7 +259,28 @@
             });
         }
 
-        document.addEventListener('DOMContentLoaded', init);
+        // Fetch config and populate venues
+        async function loadConfig() {
+            try {
+                const res = await fetch(`${API_BASE}/config`);
+                const config = await res.json();
+
+                const venueSelect = document.getElementById('venue-select');
+                venueSelect.innerHTML = config.venues.map(v =>
+                    `<option value="${v.id}">${v.name}</option>`
+                ).join('');
+
+                // Store config for later use
+                window.appConfig = config;
+            } catch (err) {
+                console.error('Failed to load config:', err);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConfig();
+            init();
+        });
     </script>
 </head>
 

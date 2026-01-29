@@ -158,8 +158,22 @@
         let currentGame = null;
         let currentPlayer = null;
         let currentDay = 'saturday';
-        const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+        let timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']; // default fallback
         let myAvailability = {};
+
+        async function loadConfig() {
+            // Fetch config if not cached
+            if (!window.appConfig) {
+                try {
+                    const res = await fetch(`${API_BASE}/config`);
+                    window.appConfig = await res.json();
+                    timeSlots = window.appConfig.time_slots || timeSlots;
+                } catch (err) {
+                    console.error('Failed to load config:', err);
+                    // Keep default timeSlots as fallback
+                }
+            }
+        }
 
         async function init() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -170,6 +184,7 @@
                 return;
             }
 
+            await loadConfig();
             await loadGame(gameId);
             checkExistingPlayer();
             setupEventListeners();
