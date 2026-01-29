@@ -9,9 +9,6 @@
     <link rel="icon" type="image/png" href="/static/images/favicon.png">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link
-        href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;family=Noto+Sans:wght@400;700&amp;display=swap"
-        rel="stylesheet" />
-    <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
         rel="stylesheet" />
     <link
@@ -23,19 +20,21 @@
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#2b8cee",
-                        "background-light": "#f6f7f8",
-                        "background-dark": "#101922",
-                        "success-green": "#22c55e",
-                        "error-red": "#ef4444"
+                        "primary": "#007AFF",
+                        "background-light": "#ffffff",
+                        "background-dark": "#000000",
+                        "success-green": "#34C759",
+                        "error-red": "#FF3B30",
+                        "label": "#1d1d1f",
+                        "secondary-label": "#86868b"
                     },
                     fontFamily: {
-                        "display": ["Lexend", "sans-serif"]
+                        "display": ["-apple-system", "BlinkMacSystemFont", "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Helvetica", "Arial", "sans-serif"]
                     },
                     borderRadius: {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
+                        "DEFAULT": "0.5rem",
+                        "lg": "0.75rem",
+                        "xl": "1rem",
                         "full": "9999px"
                     },
                 },
@@ -44,7 +43,9 @@
     </script>
     <style>
         body {
-            font-family: 'Lexend', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         .ios-shadow {
@@ -899,50 +900,42 @@
 <body class="bg-background-light dark:bg-background-dark min-h-screen">
     <div
         class="relative flex h-auto min-h-screen w-full max-w-md mx-auto flex-col bg-white dark:bg-background-dark overflow-x-hidden border-x border-gray-100 dark:border-gray-800">
-        <!-- TopAppBar -->
-        <div class="flex items-center bg-white dark:bg-background-dark p-4 pb-2 justify-between sticky top-0 z-50">
-            <div onclick="goBack()" class="text-[#111418] dark:text-white flex size-12 shrink-0 items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
-                <span class="material-symbols-outlined">chevron_left</span>
+        <!-- Apple HIG Header -->
+        <header class="bg-white/80 dark:bg-background-dark/80 backdrop-blur-lg sticky top-0 z-50 border-b border-gray-200/50 dark:border-gray-800/50">
+            <div class="py-6 px-4">
+                <h1 id="game-title" class="text-label dark:text-white text-xl font-semibold text-center tracking-tight">
+                    Loading...</h1>
+                <p id="game-venue" class="text-center text-secondary-label dark:text-gray-400 text-sm mt-1">Loading venue...</p>
             </div>
-            <h2
-                class="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">
-                Availability</h2>
-        </div>
-        <!-- Tab Navigation -->
-        <nav id="tab-nav" class="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark">
-            <div class="flex">
-                <a id="tab-home" href="#"
-                   class="flex-1 py-3 text-center font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1 hover:text-primary transition-colors">
-                    <span class="material-symbols-outlined text-sm">home</span>
-                    Home
-                </a>
-                <a id="tab-mytimes" href="#"
-                   class="flex-1 py-3 text-center font-medium text-primary border-b-2 border-primary flex items-center justify-center gap-1">
-                    <span class="material-symbols-outlined text-sm">schedule</span>
-                    My Times
-                </a>
-            </div>
-        </nav>
-        <!-- HeadlineText -->
-        <div class="px-4">
-            <h2 id="game-title"
-                class="text-[#111418] dark:text-white tracking-light text-[28px] font-bold leading-tight text-center pb-1 pt-5">
-                Loading...</h2>
-            <p id="game-venue" class="text-center text-[#617589] dark:text-gray-400 text-sm mb-6">Loading venue...</p>
-        </div>
+            <!-- Tab Navigation -->
+            <nav id="tab-nav" class="border-t border-gray-100 dark:border-gray-800">
+                <div class="flex">
+                    <a id="tab-home" href="#"
+                       class="flex-1 py-3 text-center text-sm font-medium text-secondary-label dark:text-gray-400 flex items-center justify-center gap-1.5 hover:text-primary transition-colors">
+                        <span class="material-symbols-outlined text-[18px]">home</span>
+                        Home
+                    </a>
+                    <a id="tab-mytimes" href="#"
+                       class="flex-1 py-3 text-center text-sm font-medium text-primary border-b-2 border-primary flex items-center justify-center gap-1.5">
+                        <span class="material-symbols-outlined text-[18px]">schedule</span>
+                        My Times
+                    </a>
+                </div>
+            </nav>
+        </header>
         <!-- Availability Section: Saturday -->
         <div id="saturday-section" class="mb-6">
             <div class="flex items-center justify-between px-4 pb-2 pt-4">
-                <h3 class="text-[#111418] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Saturday
+                <h3 class="text-label dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Saturday
                 </h3>
                 <span id="sat-count" class="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">0 / 12
                     Confirmed</span>
             </div>
             <div class="p-4 @container">
                 <div
-                    class="flex flex-col gap-4 rounded-xl border border-[#dbe0e6] dark:border-gray-700 bg-white dark:bg-gray-900 p-5 ios-shadow">
+                    class="flex flex-col gap-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 ios-shadow">
                     <div class="flex flex-col gap-1">
-                        <p class="text-[#111418] dark:text-white text-base font-bold leading-tight">Will you be playing?
+                        <p class="text-label dark:text-white text-base font-bold leading-tight">Will you be playing?
                         </p>
                         <div class="flex gap-2 mt-4">
                             <button id="saturday-in-btn"
@@ -958,7 +951,7 @@
                         </div>
                     </div>
                     <div class="mt-2 border-t border-gray-100 dark:border-gray-800 pt-4">
-                        <p id="sat-players" class="text-[#617589] dark:text-gray-400 text-sm font-normal leading-normal">No one has confirmed yet.</p>
+                        <p id="sat-players" class="text-secondary-label dark:text-gray-400 text-sm font-normal leading-normal">No one has confirmed yet.</p>
                     </div>
                 </div>
             </div>
@@ -966,7 +959,7 @@
         <!-- Availability Section: Sunday -->
         <div id="sunday-section" class="mb-6">
             <div class="flex items-center justify-between px-4 pb-2 pt-4">
-                <h3 class="text-[#111418] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Sunday
+                <h3 class="text-label dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Sunday
                 </h3>
                 <span id="sun-count"
                     class="text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-2 py-1 rounded-full">0
@@ -974,9 +967,9 @@
             </div>
             <div class="p-4 @container">
                 <div
-                    class="flex flex-col gap-4 rounded-xl border border-[#dbe0e6] dark:border-gray-700 bg-white dark:bg-gray-900 p-5 ios-shadow">
+                    class="flex flex-col gap-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 ios-shadow">
                     <div class="flex flex-col gap-1">
-                        <p class="text-[#111418] dark:text-white text-base font-bold leading-tight">Will you be playing?
+                        <p class="text-label dark:text-white text-base font-bold leading-tight">Will you be playing?
                         </p>
                         <div class="flex gap-2 mt-4">
                             <button id="sunday-in-btn"
@@ -992,7 +985,7 @@
                         </div>
                     </div>
                     <div class="mt-2 border-t border-gray-100 dark:border-gray-800 pt-4">
-                        <p id="sun-players" class="text-[#617589] dark:text-gray-400 text-sm font-normal leading-normal">No one has confirmed yet.</p>
+                        <p id="sun-players" class="text-secondary-label dark:text-gray-400 text-sm font-normal leading-normal">No one has confirmed yet.</p>
                     </div>
                 </div>
             </div>
@@ -1006,18 +999,18 @@
                     <div class="flex flex-wrap gap-4 items-center text-sm mb-3">
                         <div class="flex items-center gap-2">
                             <div class="w-4 h-4 rounded bg-success-green"></div>
-                            <span class="text-[#617589] dark:text-gray-400">Available</span>
+                            <span class="text-secondary-label dark:text-gray-400">Available</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="w-4 h-4 rounded bg-error-red"></div>
-                            <span class="text-[#617589] dark:text-gray-400">Unavailable</span>
+                            <span class="text-secondary-label dark:text-gray-400">Unavailable</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="w-4 h-4 rounded bg-gray-300 dark:bg-gray-600"></div>
-                            <span class="text-[#617589] dark:text-gray-400">Group</span>
+                            <span class="text-secondary-label dark:text-gray-400">Group</span>
                         </div>
                     </div>
-                    <p class="text-xs text-[#617589] dark:text-gray-400 italic">Tap or drag to select your availability</p>
+                    <p class="text-xs text-secondary-label dark:text-gray-400 italic">Tap or drag to select your availability</p>
                 </div>
             </div>
 
@@ -1061,11 +1054,11 @@
 
             <!-- Time Slots Grid -->
             <div class="px-4">
-                <div class="bg-white dark:bg-gray-900 rounded-xl border border-[#dbe0e6] dark:border-gray-700 overflow-hidden ios-shadow">
+                <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden ios-shadow">
                     <div class="grid grid-cols-12 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
                         <div class="col-span-2 p-2"></div>
-                        <div class="col-span-5 p-2 text-center text-xs font-bold text-[#617589] dark:text-gray-400 uppercase">My Status</div>
-                        <div class="col-span-5 p-2 text-center text-xs font-bold text-[#617589] dark:text-gray-400 uppercase">Group</div>
+                        <div class="col-span-5 p-2 text-center text-xs font-bold text-secondary-label dark:text-gray-400 uppercase">My Status</div>
+                        <div class="col-span-5 p-2 text-center text-xs font-bold text-secondary-label dark:text-gray-400 uppercase">Group</div>
                     </div>
                     <div id="time-slots-container" class="divide-y divide-gray-100 dark:divide-gray-800">
                         <!-- Time slots rendered dynamically -->
