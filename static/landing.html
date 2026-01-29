@@ -314,7 +314,6 @@
 
         function displayGame() {
             if (!currentGame) return;
-            document.getElementById('game-header').textContent = currentGame.title || 'Set Game Details';
 
             const titleInput = document.getElementById('game-title');
             titleInput.value = currentGame.title || '';
@@ -688,7 +687,7 @@
 
                 return `
                     <div class="flex items-center justify-between p-3 rounded-xl ${isCurrent ? 'bg-primary/10 border border-primary/20' : 'bg-gray-50 dark:bg-gray-800/50'} hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
-                        <div class="flex items-center gap-3 flex-1 cursor-pointer" onclick="loadGame('${game.id}')">
+                        <div class="flex items-center gap-3 flex-1 cursor-pointer" onclick="window.location.href='/playeravail.html?game=${game.id}'">
                             <div class="w-10 h-10 rounded-lg ${isCurrent ? 'bg-primary/20' : 'bg-gray-200 dark:bg-gray-700'} flex items-center justify-center">
                                 <span class="material-symbols-outlined text-${isCurrent ? 'primary' : 'gray-400'} text-lg">sports_volleyball</span>
                             </div>
@@ -802,7 +801,6 @@
                 // If this was the current game, clear the display
                 if (currentGame?.id === gameId) {
                     currentGame = null;
-                    document.getElementById('game-header').textContent = 'Set Game Details';
                     document.getElementById('game-title').value = '';
                     document.getElementById('roster-list').innerHTML = '<p class="text-center text-gray-500 py-8">Create a game to see the roster</p>';
                     document.getElementById('slot-counter').textContent = '0/12 Slots';
@@ -901,19 +899,8 @@
 
 <body
     class="bg-background-light dark:bg-background-dark min-h-screen flex flex-col font-display transition-colors duration-300">
-    <!-- Top Navigation Bar -->
-    <header class="sticky top-0 z-50 bg-white dark:bg-background-dark border-b border-gray-100 dark:border-gray-800">
-        <div class="flex items-center p-4 pb-2 justify-between max-w-md mx-auto">
-            <div onclick="history.back()" class="text-[#111418] dark:text-white flex size-12 shrink-0 items-center justify-start cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
-                <span class="material-symbols-outlined text-2xl">arrow_back_ios</span>
-            </div>
-            <h2 id="game-header"
-                class="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">
-                Set Game Details</h2>
-        </div>
-    </header>
     <!-- Tab Navigation -->
-    <nav id="tab-nav" class="hidden border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark max-w-md mx-auto w-full">
+    <nav id="tab-nav" class="hidden sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark max-w-md mx-auto w-full">
         <div class="flex">
             <a id="tab-home" href="#"
                class="flex-1 py-3 text-center font-medium text-primary border-b-2 border-primary flex items-center justify-center gap-1">
