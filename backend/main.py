@@ -131,6 +131,47 @@ def get_players(game_id: str):
         return [PlayerResponse(**dict(row)) for row in rows]
 
 
+@app.put("/api/games/{game_id}/players/{player_id}", response_model=PlayerResponse)
+def update_player(game_id: str, player_id: int, player: PlayerCreate):
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Check player exists and belongs to game
+        cursor.execute("SELECT * FROM players WHERE id = ? AND game_id = ?", (player_id, game_id))
+        existing = cursor.fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Player not found")
+
+        # Check name not already taken by another player in same game
+        cursor.execute(
+            "SELECT id FROM players WHERE game_id = ? AND name = ? AND id != ?",
+            (game_id, player.name, player_id)
+        )
+        if cursor.fetchone():
+            raise HTTPException(status_code=409, detail="Name already taken")
+
+        cursor.execute(
+            "UPDATE players SET name = ?, avatar_url = ? WHERE id = ?",
+            (player.name, player.avatar_url, player_id)
+        )
+
+        cursor.execute("SELECT * FROM players WHERE id = ?", (player_id,))
+        row = cursor.fetchone()
+        return PlayerResponse(**dict(row))
+
+
+@app.delete("/api/games/{game_id}/players/{player_id}")
+def delete_player(game_id: str, player_id: int):
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("DELETE FROM players WHERE id = ? AND game_id = ?", (player_id, game_id))
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Player not found")
+
+        return {"message": "Player deleted"}
+
+
 # ============ AVAILABILITY ============
 
 @app.post("/api/games/{game_id}/availability")
