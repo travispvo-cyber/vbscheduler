@@ -5,7 +5,8 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Organizer: Set Game Details</title>
+    <title>VB Scheduler</title>
+    <link rel="icon" type="image/png" href="/static/images/favicon.png">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <!-- Google Fonts: Lexend -->
@@ -676,6 +677,13 @@
             });
             document.getElementById('heatmap-sat-tab')?.addEventListener('click', () => switchHeatmapDay('saturday'));
             document.getElementById('heatmap-sun-tab')?.addEventListener('click', () => switchHeatmapDay('sunday'));
+            document.getElementById('update-availability-btn')?.addEventListener('click', () => {
+                if (currentGame) {
+                    window.location.href = `/playeravail.html?game=${currentGame.id}`;
+                } else {
+                    alert('Create a game first!');
+                }
+            });
         }
 
         // Fetch config and populate venues
@@ -842,6 +850,15 @@
 
             <!-- Hidden text element for compatibility -->
             <p id="suggested-time" class="hidden"></p>
+
+            <!-- Update Availability Button -->
+            <div class="px-4 pt-4">
+                <button id="update-availability-btn"
+                    class="w-full py-3 border-2 border-dashed border-primary/30 rounded-xl flex items-center justify-center gap-2 text-primary font-medium hover:bg-primary/5 transition-colors">
+                    <span class="material-symbols-outlined text-sm">edit_calendar</span>
+                    Update your availability
+                </button>
+            </div>
         </div>
 
         <!-- My Games Section -->

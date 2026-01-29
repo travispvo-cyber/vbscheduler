@@ -3,6 +3,7 @@ import secrets
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from config import STATIC_DIR, CORS_ORIGINS, PORT, HOST, DEBUG
 from database import get_db, init_db
 from models import (
@@ -29,6 +30,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files (for images, favicon, etc.)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.exception_handler(HTTPException)
