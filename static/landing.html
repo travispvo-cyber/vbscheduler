@@ -56,21 +56,44 @@
         body {
             min-height: max(884px, 100dvh);
         }
+        @keyframes toast-fade-in {
+            from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
     </style>
 <script>
         const API_BASE = '/api';
         let currentGame = null;
 
         function showError(message) {
-            // Remove existing error toasts
-            document.querySelectorAll('.error-toast').forEach(el => el.remove());
+            showToast(message, 'error');
+        }
+
+        function showToast(message, type = 'success') {
+            // Remove existing toasts
+            document.querySelectorAll('.toast-notification').forEach(el => el.remove());
 
             const toast = document.createElement('div');
-            toast.className = 'error-toast fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-            toast.textContent = message;
+            const bgColor = type === 'error' ? 'bg-red-600' : 'bg-gray-800';
+            const icon = type === 'error' ? 'error' : 'check_circle';
+            const iconColor = type === 'error' ? 'text-red-300' : 'text-green-400';
+
+            toast.className = `toast-notification fixed bottom-24 left-1/2 -translate-x-1/2 ${bgColor} text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2`;
+            toast.style.animation = 'toast-fade-in 0.2s ease-out';
+            toast.innerHTML = `
+                <span class="material-symbols-outlined ${iconColor} text-sm">${icon}</span>
+                <span class="text-sm font-medium">${message}</span>
+            `;
             document.body.appendChild(toast);
 
-            setTimeout(() => toast.remove(), 4000);
+            // Fade out animation
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(-50%) translateY(10px)';
+                toast.style.transition = 'all 0.3s ease';
+            }, type === 'error' ? 3500 : 1700);
+
+            setTimeout(() => toast.remove(), type === 'error' ? 4000 : 2000);
         }
 
         async function apiCall(url, options = {}) {
@@ -96,6 +119,15 @@
             }
         }
 
+        // Host detection helper
+        function isHostOfGame(gameId) {
+            return localStorage.getItem(`isHost_${gameId}`) === 'true';
+        }
+
+        function setAsHost(gameId) {
+            localStorage.setItem(`isHost_${gameId}`, 'true');
+        }
+
         // Game history management
         function getGameHistory() {
             try {
@@ -105,7 +137,7 @@
             }
         }
 
-        function addToGameHistory(gameId, title, venue, gameDate) {
+        function addToGameHistory(gameId, title, venue, gameDate, isHost = false) {
             const history = getGameHistory();
             // Remove if already exists (to update position/data)
             const filtered = history.filter(g => g.id !== gameId);
@@ -115,10 +147,16 @@
                 title: title || 'Volleyball Game',
                 venue: venue || '',
                 gameDate: gameDate || '',
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                isHost: isHost
             });
             // Keep last 10 games
             localStorage.setItem('gameHistory', JSON.stringify(filtered.slice(0, 10)));
+
+            // Also set dedicated host flag
+            if (isHost) {
+                setAsHost(gameId);
+            }
         }
 
         function removeFromGameHistory(gameId) {
@@ -149,8 +187,14 @@
                 if (!res.ok) throw new Error('Game not found');
                 currentGame = await res.json();
                 localStorage.setItem('currentGameId', gameId);
-                // Add/update in history
-                addToGameHistory(currentGame.id, currentGame.title, currentGame.venue, currentGame.game_date);
+
+                // Sync host status from game history (in case localStorage was cleared)
+                const history = getGameHistory();
+                const gameEntry = history.find(g => g.id === gameId);
+                const wasHost = gameEntry?.isHost || isHostOfGame(gameId);
+
+                // Add/update in history, preserving host status
+                addToGameHistory(currentGame.id, currentGame.title, currentGame.venue, currentGame.game_date, wasHost);
                 displayGame();
                 await loadPlayers();
                 renderGameHistory();
@@ -206,8 +250,9 @@
                 });
                 currentGame = await res.json();
                 localStorage.setItem('currentGameId', currentGame.id);
-                // Add to game history
-                addToGameHistory(currentGame.id, title, venueName, gameDateStr);
+                // Mark this device as host and add to game history
+                setAsHost(currentGame.id);
+                addToGameHistory(currentGame.id, title, venueName, gameDateStr, true);
                 displayGame();
                 renderGameHistory();
                 showShareLink();
@@ -220,7 +265,19 @@
         function displayGame() {
             if (!currentGame) return;
             document.getElementById('game-header').textContent = currentGame.title || 'Set Game Details';
-            document.getElementById('game-title').value = currentGame.title || '';
+
+            const titleInput = document.getElementById('game-title');
+            titleInput.value = currentGame.title || '';
+
+            // Check if this device is the host
+            const isHost = isHostOfGame(currentGame.id);
+            if (isHost) {
+                titleInput.disabled = false;
+                titleInput.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'cursor-not-allowed', 'opacity-70');
+            } else {
+                titleInput.disabled = true;
+                titleInput.classList.add('bg-gray-100', 'dark:bg-gray-800', 'cursor-not-allowed', 'opacity-70');
+            }
 
             // Update venue dropdown if game loaded (match by name from config)
             const venueSelect = document.getElementById('venue-select');
@@ -255,6 +312,9 @@
             document.getElementById('create-game-btn').classList.add('hidden');
             document.getElementById('share-link-btn').classList.remove('hidden');
             document.getElementById('share-link-btn').classList.add('flex');
+
+            // Update tab navigation
+            updateTabNav();
         }
 
         let timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
@@ -654,17 +714,22 @@
                 }
 
                 renderGameHistory();
-
-                // Show success toast
-                const toast = document.createElement('div');
-                toast.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-                toast.textContent = 'Game deleted successfully';
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
+                showToast('Game deleted');
 
             } catch (e) {
                 console.error('Error deleting game:', e);
                 showError(e.message || 'Failed to delete game');
+            }
+        }
+
+        function updateTabNav() {
+            const tabNav = document.getElementById('tab-nav');
+            if (currentGame) {
+                tabNav.classList.remove('hidden');
+                document.getElementById('tab-home').href = `/landing.html?game=${currentGame.id}`;
+                document.getElementById('tab-mytimes').href = `/playeravail.html?game=${currentGame.id}`;
+            } else {
+                tabNav.classList.add('hidden');
             }
         }
 
@@ -742,6 +807,21 @@
                 Set Game Details</h2>
         </div>
     </header>
+    <!-- Tab Navigation -->
+    <nav id="tab-nav" class="hidden border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-background-dark max-w-md mx-auto w-full">
+        <div class="flex">
+            <a id="tab-home" href="#"
+               class="flex-1 py-3 text-center font-medium text-primary border-b-2 border-primary flex items-center justify-center gap-1">
+                <span class="material-symbols-outlined text-sm">home</span>
+                Home
+            </a>
+            <a id="tab-mytimes" href="#"
+               class="flex-1 py-3 text-center font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1 hover:text-primary transition-colors">
+                <span class="material-symbols-outlined text-sm">schedule</span>
+                My Times
+            </a>
+        </div>
+    </nav>
     <main class="flex-1 max-w-md mx-auto w-full pb-32">
         <!-- Game Title -->
         <div class="px-4 py-4">
