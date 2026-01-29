@@ -491,11 +491,25 @@
                     }
                 }
 
-                showSuccess('Availability saved!');
+                showSuccess('Availability saved! Redirecting...');
                 await loadGroupAvailability();
                 await loadHeatmap();
+
+                // Redirect to landing page after short delay
+                setTimeout(() => {
+                    window.location.href = `/landing.html?game=${currentGame.id}`;
+                }, 1500);
             } catch (e) {
                 console.error('Error saving availability:', e);
+            }
+        }
+
+        function goBack() {
+            // Navigate to landing page with game ID if available
+            if (currentGame?.id) {
+                window.location.href = `/landing.html?game=${currentGame.id}`;
+            } else {
+                window.location.href = '/';
             }
         }
 
@@ -518,7 +532,7 @@
         class="relative flex h-auto min-h-screen w-full max-w-md mx-auto flex-col bg-white dark:bg-background-dark overflow-x-hidden border-x border-gray-100 dark:border-gray-800">
         <!-- TopAppBar -->
         <div class="flex items-center bg-white dark:bg-background-dark p-4 pb-2 justify-between sticky top-0 z-50">
-            <div onclick="history.back()" class="text-[#111418] dark:text-white flex size-12 shrink-0 items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+            <div onclick="goBack()" class="text-[#111418] dark:text-white flex size-12 shrink-0 items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
                 <span class="material-symbols-outlined">chevron_left</span>
             </div>
             <h2
