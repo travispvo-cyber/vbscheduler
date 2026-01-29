@@ -212,15 +212,19 @@
             const hasSaturday = selectedDays.includes('saturday');
             const hasSunday = selectedDays.includes('sunday');
 
-            // Update title based on selected days
+            // Show actual game title
+            document.getElementById('game-title').textContent = currentGame.title || 'Volleyball Game';
+
+            // Show venue with date
+            let dateStr = '';
             if (hasSaturday && hasSunday) {
-                document.getElementById('game-title').textContent = `Weekend ${satDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}-${sunDate.getDate()}`;
+                dateStr = `${satDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}-${sunDate.getDate()}`;
             } else if (hasSaturday) {
-                document.getElementById('game-title').textContent = satDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                dateStr = satDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
             } else {
-                document.getElementById('game-title').textContent = sunDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                dateStr = sunDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
             }
-            document.getElementById('game-venue').textContent = `${currentGame.venue}`;
+            document.getElementById('game-venue').textContent = `${currentGame.venue} · ${dateStr}`;
 
             // Show/hide day sections based on host's selection
             const satSection = document.getElementById('saturday-section');
