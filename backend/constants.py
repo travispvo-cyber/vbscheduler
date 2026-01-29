@@ -30,5 +30,5 @@ PLAYER_NAME_MAX_LENGTH = 30
 PLAYER_ROSTER = [
     "David", "Jasmine", "Mike", "Travis", "Luis",
     "Andy", "May", "Gerry", "Justice", "Olivia",
-    "Ruben", "Alex", "Guest 1", "Guest 2"
+    "Ruben", "Alex", "Karthik", "Mahen", "Guest 1", "Guest 2"
 ]
