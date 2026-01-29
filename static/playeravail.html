@@ -113,13 +113,18 @@
         async function loadGame(gameId) {
             try {
                 const res = await fetch(`${API_BASE}/games/${gameId}`);
-                if (!res.ok) throw new Error('Game not found');
-                currentGame = await res.json();
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.message || 'Game not found');
+                }
+                currentGame = data;
                 displayGame();
                 await loadGroupAvailability();
             } catch (e) {
                 console.error('Error loading game:', e);
-                alert('Game not found. Please check your invite link.');
+                showError(e.message || 'Game not found. Please check your invite link.');
+                document.getElementById('game-title').textContent = 'Game Not Found';
+                document.getElementById('game-venue').textContent = 'Please check your invite link';
             }
         }
 
@@ -186,23 +191,36 @@
         }
 
         async function registerPlayer(name) {
+            if (!currentGame) {
+                showError('Game not loaded. Please refresh the page.');
+                return false;
+            }
             try {
                 const res = await fetch(`${API_BASE}/games/${currentGame.id}/players`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name })
                 });
-                currentPlayer = await res.json();
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.message || 'Failed to register');
+                }
+                currentPlayer = data;
                 localStorage.setItem(`player_${currentGame.id}`, currentPlayer.id);
                 localStorage.setItem(`playerName_${currentGame.id}`, currentPlayer.name);
                 return true;
             } catch (e) {
                 console.error('Error registering player:', e);
+                showError(e.message || 'Failed to register player');
                 return false;
             }
         }
 
         function showNamePrompt(day, status) {
+            if (!currentGame) {
+                showError('Game not loaded. Please refresh the page.');
+                return;
+            }
             if (currentPlayer) {
                 setAvailability(day, status);
                 return;
