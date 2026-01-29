@@ -1,55 +1,70 @@
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
-from config import DATA_DIR
-
-DB_PATH = DATA_DIR / "volleyball.db"
-
-
-def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
+from config import get_db_config
 
 @contextmanager
 def get_db():
-    conn = get_connection()
+    """Get a database connection with automatic commit/rollback."""
+    config = get_db_config()
+    conn = psycopg2.connect(
+        host=config["host"],
+        port=config["port"],
+        database=config["database"],
+        user=config["user"],
+        password=config["password"],
+        cursor_factory=RealDictCursor
+    )
     try:
         yield conn
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
 
 def init_db():
+    """Initialize database schema."""
     with get_db() as conn:
         cursor = conn.cursor()
+
+        # Organizers table (new)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS organizers (
+                id UUID PRIMARY KEY,
+                name TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
         # Games table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS games (
                 id TEXT PRIMARY KEY,
+                organizer_id UUID REFERENCES organizers(id) ON DELETE SET NULL,
                 title TEXT NOT NULL,
                 venue TEXT NOT NULL,
-                game_date TEXT NOT NULL,
+                game_date DATE NOT NULL,
                 start_time TEXT DEFAULT '09:00',
                 end_time TEXT DEFAULT '17:00',
                 max_players INTEGER DEFAULT 12,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                organizer_name TEXT,
-                organizer_pin TEXT
+                min_players INTEGER DEFAULT 4,
+                selected_days JSONB DEFAULT '["saturday", "sunday"]',
+                organizer_pin TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
-        # Players table (per game, no accounts)
+        # Players table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS players (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                game_id TEXT NOT NULL,
+                id SERIAL PRIMARY KEY,
+                game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
                 name TEXT NOT NULL,
                 avatar_url TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(game_id, name)
             )
         """)
@@ -57,40 +72,20 @@ def init_db():
         # Availability table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS availability (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                game_id TEXT NOT NULL,
-                player_id INTEGER NOT NULL,
+                id SERIAL PRIMARY KEY,
+                game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+                player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
                 day TEXT NOT NULL,
                 time_slot TEXT NOT NULL,
                 status TEXT NOT NULL CHECK(status IN ('available', 'unavailable')),
-                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-                FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(game_id, player_id, day, time_slot)
             )
         """)
-
-        # Migration: Add organizer_pin if not exists
-        try:
-            cursor.execute("ALTER TABLE games ADD COLUMN organizer_pin TEXT")
-        except:
-            pass  # Column already exists
-
-        # Migration: Add selected_days column (JSON array of days)
-        try:
-            cursor.execute("ALTER TABLE games ADD COLUMN selected_days TEXT DEFAULT '[\"saturday\", \"sunday\"]'")
-        except:
-            pass  # Column already exists
-
-        # Migration: Add min_players column (venue-specific minimum)
-        try:
-            cursor.execute("ALTER TABLE games ADD COLUMN min_players INTEGER DEFAULT 4")
-        except:
-            pass  # Column already exists
 
         conn.commit()
 
 
 if __name__ == "__main__":
     init_db()
-    print(f"Database initialized at {DB_PATH}")
+    print("Database initialized successfully")
