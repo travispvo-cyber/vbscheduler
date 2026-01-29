@@ -1,9 +1,8 @@
 import secrets
-from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from config import STATIC_DIR, CORS_ORIGINS, PORT, HOST, DEBUG
 from database import get_db, init_db
 from models import (
     GameCreate, GameResponse,
@@ -12,19 +11,21 @@ from models import (
     HeatmapSlot, HeatmapResponse
 )
 
-app = FastAPI(title="VB Scheduler API", version="1.0.0")
+app = FastAPI(
+    title="VB Scheduler API",
+    version="1.0.0",
+    docs_url="/api/docs" if DEBUG else None,
+    redoc_url="/api/redoc" if DEBUG else None,
+)
 
 # Allow CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Static files directory (parent of backend folder)
-STATIC_DIR = Path(__file__).parent.parent
 
 
 @app.on_event("startup")
@@ -243,4 +244,4 @@ def serve_playermode():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=HOST, port=PORT, reload=DEBUG)

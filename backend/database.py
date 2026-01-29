@@ -1,8 +1,8 @@
 import sqlite3
-from pathlib import Path
 from contextlib import contextmanager
+from config import DATA_DIR
 
-DB_PATH = Path(__file__).parent / "volleyball.db"
+DB_PATH = DATA_DIR / "volleyball.db"
 
 
 def get_connection():

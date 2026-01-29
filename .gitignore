@@ -1,5 +1,12 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
 # Database
 *.db
+data/*
+!data/.gitkeep
 
 # Python
 __pycache__/
@@ -7,9 +14,9 @@ __pycache__/
 *$py.class
 .Python
 *.so
-.env
 venv/
 ENV/
+.venv/
 
 # IDE
 .vscode/
@@ -20,3 +27,12 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
