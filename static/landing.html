@@ -119,6 +119,13 @@
             }
         }
 
+        // Parse date string as local time (avoids UTC timezone shift)
+        function parseLocalDate(dateStr) {
+            if (!dateStr) return new Date();
+            const [year, month, day] = dateStr.split('-').map(Number);
+            return new Date(year, month - 1, day);
+        }
+
         // Host detection helper
         function isHostOfGame(gameId) {
             return localStorage.getItem(`isHost_${gameId}`) === 'true';
@@ -683,7 +690,7 @@
 
             container.innerHTML = history.map(game => {
                 const isCurrent = game.id === currentId;
-                const date = game.gameDate ? new Date(game.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+                const date = game.gameDate ? parseLocalDate(game.gameDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
 
                 return `
                     <div class="flex items-center justify-between p-3 rounded-xl ${isCurrent ? 'bg-primary/10 border border-primary/20' : 'bg-gray-50 dark:bg-gray-800/50'} hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
@@ -730,7 +737,7 @@
                 container.innerHTML = games.map(game => {
                     const isVisited = visitedIds.has(game.id);
                     const isCurrentGame = currentGame?.id === game.id;
-                    const gameDate = new Date(game.game_date);
+                    const gameDate = parseLocalDate(game.game_date);
                     const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
                     return `

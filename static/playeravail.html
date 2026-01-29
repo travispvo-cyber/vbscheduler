@@ -91,6 +91,13 @@
             clear: { slots: 'none', label: 'Clear', icon: 'delete' }
         };
 
+        // Parse date string as local time (avoids UTC timezone shift)
+        function parseLocalDate(dateStr) {
+            if (!dateStr) return new Date();
+            const [year, month, day] = dateStr.split('-').map(Number);
+            return new Date(year, month - 1, day);
+        }
+
         function showError(message) {
             showToast(message, 'error');
         }
@@ -198,10 +205,10 @@
 
         function displayGame() {
             if (!currentGame) return;
-            const gameDate = new Date(currentGame.game_date);
+            const gameDate = parseLocalDate(currentGame.game_date);
 
-            const satDate = new Date(currentGame.game_date);
-            const sunDate = new Date(currentGame.game_date);
+            const satDate = parseLocalDate(currentGame.game_date);
+            const sunDate = parseLocalDate(currentGame.game_date);
             if (satDate.getDay() === 0) {
                 satDate.setDate(satDate.getDate() - 1);
             } else {
