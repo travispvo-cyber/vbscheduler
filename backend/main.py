@@ -1,3 +1,4 @@
+import json
 import secrets
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -70,18 +71,22 @@ def generate_game_id() -> str:
 @app.post("/api/games", response_model=GameResponse)
 def create_game(game: GameCreate):
     game_id = generate_game_id()
+    selected_days_json = json.dumps(game.selected_days)
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO games (id, title, venue, game_date, start_time, end_time, max_players, organizer_name, organizer_pin)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (game_id, game.title, game.venue, game.game_date, game.start_time, game.end_time, game.max_players, game.organizer_name, game.organizer_pin))
+            INSERT INTO games (id, title, venue, game_date, start_time, end_time, max_players, min_players, selected_days, organizer_name, organizer_pin)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (game_id, game.title, game.venue, game.game_date, game.start_time, game.end_time, game.max_players, game.min_players, selected_days_json, game.organizer_name, game.organizer_pin))
 
         cursor.execute("SELECT * FROM games WHERE id = ?", (game_id,))
         row = cursor.fetchone()
         # Don't return pin in response
         data = dict(row)
         data.pop('organizer_pin', None)
+        # Parse selected_days JSON
+        if data.get('selected_days'):
+            data['selected_days'] = json.loads(data['selected_days'])
         return GameResponse(**data)
 
 
@@ -95,17 +100,21 @@ def get_game(game_id: str):
             raise HTTPException(status_code=404, detail="Game not found")
         data = dict(row)
         data.pop('organizer_pin', None)
+        # Parse selected_days JSON
+        if data.get('selected_days'):
+            data['selected_days'] = json.loads(data['selected_days'])
         return GameResponse(**data)
 
 
 @app.put("/api/games/{game_id}", response_model=GameResponse)
 def update_game(game_id: str, game: GameCreate):
+    selected_days_json = json.dumps(game.selected_days)
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            UPDATE games SET title=?, venue=?, game_date=?, start_time=?, end_time=?, max_players=?, organizer_name=?, organizer_pin=?
+            UPDATE games SET title=?, venue=?, game_date=?, start_time=?, end_time=?, max_players=?, min_players=?, selected_days=?, organizer_name=?, organizer_pin=?
             WHERE id = ?
-        """, (game.title, game.venue, game.game_date, game.start_time, game.end_time, game.max_players, game.organizer_name, game.organizer_pin, game_id))
+        """, (game.title, game.venue, game.game_date, game.start_time, game.end_time, game.max_players, game.min_players, selected_days_json, game.organizer_name, game.organizer_pin, game_id))
 
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Game not found")
@@ -114,6 +123,9 @@ def update_game(game_id: str, game: GameCreate):
         row = cursor.fetchone()
         data = dict(row)
         data.pop('organizer_pin', None)
+        # Parse selected_days JSON
+        if data.get('selected_days'):
+            data['selected_days'] = json.loads(data['selected_days'])
         return GameResponse(**data)
 
 

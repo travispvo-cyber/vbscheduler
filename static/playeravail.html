@@ -165,8 +165,37 @@
                 sunDate.setDate(sunDate.getDate() + 1);
             }
 
-            document.getElementById('game-title').textContent = `Weekend ${satDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}-${sunDate.getDate()}`;
+            // Get selected days from game
+            const selectedDays = currentGame.selected_days || ['saturday', 'sunday'];
+            const hasSaturday = selectedDays.includes('saturday');
+            const hasSunday = selectedDays.includes('sunday');
+
+            // Update title based on selected days
+            if (hasSaturday && hasSunday) {
+                document.getElementById('game-title').textContent = `Weekend ${satDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}-${sunDate.getDate()}`;
+            } else if (hasSaturday) {
+                document.getElementById('game-title').textContent = satDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+            } else {
+                document.getElementById('game-title').textContent = sunDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+            }
             document.getElementById('game-venue').textContent = `${currentGame.venue}`;
+
+            // Show/hide day sections based on host's selection
+            const satSection = document.getElementById('saturday-section');
+            const sunSection = document.getElementById('sunday-section');
+            if (satSection) satSection.classList.toggle('hidden', !hasSaturday);
+            if (sunSection) sunSection.classList.toggle('hidden', !hasSunday);
+
+            // Update time slots tabs visibility
+            const satTab = document.getElementById('sat-tab');
+            const sunTab = document.getElementById('sun-tab');
+            if (satTab) satTab.classList.toggle('hidden', !hasSaturday);
+            if (sunTab) sunTab.classList.toggle('hidden', !hasSunday);
+
+            // Set default current day to first available
+            if (selectedDays.length > 0) {
+                currentDay = selectedDays[0];
+            }
         }
 
         function checkExistingPlayer() {
@@ -181,12 +210,15 @@
             if (!currentGame) return;
             try {
                 const allAvail = await apiCall(`${API_BASE}/games/${currentGame.id}/availability`);
+                const minPlayers = currentGame.min_players || 4;
 
                 const satCount = new Set(allAvail.filter(a => a.day === 'saturday' && a.status === 'available').map(a => a.player_id)).size;
                 const sunCount = new Set(allAvail.filter(a => a.day === 'sunday' && a.status === 'available').map(a => a.player_id)).size;
 
-                document.getElementById('sat-count').textContent = `${satCount} / 12 Confirmed`;
-                document.getElementById('sun-count').textContent = `${sunCount} / 12 Confirmed`;
+                const satCountEl = document.getElementById('sat-count');
+                const sunCountEl = document.getElementById('sun-count');
+                if (satCountEl) satCountEl.textContent = `${satCount} / ${minPlayers} Confirmed`;
+                if (sunCountEl) sunCountEl.textContent = `${sunCount} / ${minPlayers} Confirmed`;
 
                 const satPlayers = [...new Set(allAvail.filter(a => a.day === 'saturday' && a.status === 'available').map(a => a.player_name))];
                 const sunPlayers = [...new Set(allAvail.filter(a => a.day === 'sunday' && a.status === 'available').map(a => a.player_name))];
@@ -434,8 +466,11 @@
                 return;
             }
 
+            // Only save for days selected by the host
+            const selectedDays = currentGame?.selected_days || ['saturday', 'sunday'];
+
             try {
-                for (const day of ['saturday', 'sunday']) {
+                for (const day of selectedDays) {
                     const slots = {};
                     timeSlots.forEach(slot => {
                         const key = `${day}_${slot}`;
@@ -498,7 +533,7 @@
             <p id="game-venue" class="text-center text-[#617589] dark:text-gray-400 text-sm mb-6">Loading venue...</p>
         </div>
         <!-- Availability Section: Saturday -->
-        <div class="mb-6">
+        <div id="saturday-section" class="mb-6">
             <div class="flex items-center justify-between px-4 pb-2 pt-4">
                 <h3 class="text-[#111418] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Saturday
                 </h3>
@@ -531,7 +566,7 @@
             </div>
         </div>
         <!-- Availability Section: Sunday -->
-        <div class="mb-6">
+        <div id="sunday-section" class="mb-6">
             <div class="flex items-center justify-between px-4 pb-2 pt-4">
                 <h3 class="text-[#111418] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Sunday
                 </h3>

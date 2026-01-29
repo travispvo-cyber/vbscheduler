@@ -76,6 +76,18 @@ def init_db():
         except:
             pass  # Column already exists
 
+        # Migration: Add selected_days column (JSON array of days)
+        try:
+            cursor.execute("ALTER TABLE games ADD COLUMN selected_days TEXT DEFAULT '[\"saturday\", \"sunday\"]'")
+        except:
+            pass  # Column already exists
+
+        # Migration: Add min_players column (venue-specific minimum)
+        try:
+            cursor.execute("ALTER TABLE games ADD COLUMN min_players INTEGER DEFAULT 4")
+        except:
+            pass  # Column already exists
+
         conn.commit()
 
 

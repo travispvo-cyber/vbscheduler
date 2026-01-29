@@ -13,6 +13,8 @@ class GameCreate(BaseModel):
     start_time: str = Field(default="09:00", pattern=r"^\d{2}:\d{2}$")
     end_time: str = Field(default="17:00", pattern=r"^\d{2}:\d{2}$")
     max_players: int = Field(default=MAX_PLAYERS_DEFAULT, ge=MAX_PLAYERS_MIN, le=MAX_PLAYERS_MAX)
+    min_players: int = Field(default=MAX_PLAYERS_MIN, ge=MAX_PLAYERS_MIN, le=MAX_PLAYERS_MAX)
+    selected_days: list[str] = Field(default=["saturday", "sunday"])
     organizer_name: Optional[str] = Field(default=None, max_length=PLAYER_NAME_MAX_LENGTH)
     organizer_pin: Optional[str] = Field(default=None, min_length=4, max_length=6, pattern=r"^\d{4,6}$")
 
@@ -23,6 +25,15 @@ class GameCreate(BaseModel):
             return GAME_TITLE_DEFAULT
         return v.strip()
 
+    @field_validator('selected_days')
+    @classmethod
+    def validate_days(cls, v):
+        valid_days = {'saturday', 'sunday'}
+        for day in v:
+            if day.lower() not in valid_days:
+                raise ValueError(f"Invalid day '{day}'. Must be 'saturday' or 'sunday'")
+        return [d.lower() for d in v]
+
 
 class GameResponse(BaseModel):
     id: str
@@ -32,6 +43,8 @@ class GameResponse(BaseModel):
     start_time: str
     end_time: str
     max_players: int
+    min_players: Optional[int] = 4
+    selected_days: Optional[list[str]] = ["saturday", "sunday"]
     organizer_name: Optional[str]
     created_at: str
 

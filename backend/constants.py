@@ -1,10 +1,12 @@
 # backend/constants.py
 """Application constants - single source of truth for configuration values."""
 
+# Venues with player requirements
+# Indoor T4: requires exactly 12 players
+# Powder Keg (beach): requires 4, allows up to 8
 VENUES = [
-    {"id": "beach", "name": "Beach", "icon": "beach_access"},
-    {"id": "gym", "name": "Indoor Gym", "icon": "fitness_center"},
-    {"id": "park", "name": "Park", "icon": "park"},
+    {"id": "indoor", "name": "Indoor T4", "icon": "fitness_center", "min_players": 12, "max_players": 12},
+    {"id": "beach", "name": "Powder Keg", "icon": "beach_access", "min_players": 4, "max_players": 8},
 ]
 
 TIME_SLOTS = [
@@ -16,7 +18,7 @@ DAYS = ["saturday", "sunday"]
 
 MAX_PLAYERS_DEFAULT = 12
 MAX_PLAYERS_MIN = 4
-MAX_PLAYERS_MAX = 30
+MAX_PLAYERS_MAX = 12
 
 GAME_TITLE_DEFAULT = "Volleyball Game"
 GAME_TITLE_MAX_LENGTH = 50
