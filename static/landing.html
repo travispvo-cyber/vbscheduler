@@ -220,13 +220,11 @@
             const title = document.getElementById('game-title').value || 'Volleyball Game';
             const venueId = document.getElementById('venue-select').value;
 
-            // Get venue info from config
             const venueObj = window.appConfig?.venues?.find(v => v.id === venueId);
             const venueName = venueObj ? venueObj.name : venueId;
             const minPlayers = venueObj?.min_players || 4;
             const maxPlayers = venueObj?.max_players || 12;
 
-            // Get selected days from checkboxes
             const selectedDays = [];
             if (document.getElementById('day-saturday')?.checked) selectedDays.push('saturday');
             if (document.getElementById('day-sunday')?.checked) selectedDays.push('sunday');
@@ -236,7 +234,6 @@
                 return;
             }
 
-            // Calculate next Saturday
             const today = new Date();
             const dayOfWeek = today.getDay();
             const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
@@ -245,22 +242,26 @@
             const gameDateStr = gameDate.toISOString().split('T')[0];
 
             try {
+                // Ensure organizer exists before creating game
+                const organizerToken = await ensureOrganizer('Organizer');
+
                 const res = await fetch(`${API_BASE}/games`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Organizer-Token': organizerToken
+                    },
                     body: JSON.stringify({
                         title: title,
                         venue: venueName,
                         game_date: gameDateStr,
                         min_players: minPlayers,
                         max_players: maxPlayers,
-                        selected_days: selectedDays,
-                        organizer_name: 'Organizer'
+                        selected_days: selectedDays
                     })
                 });
                 currentGame = await res.json();
                 localStorage.setItem('currentGameId', currentGame.id);
-                // Mark this device as host and add to game history
                 setAsHost(currentGame.id);
                 addToGameHistory(currentGame.id, title, venueName, gameDateStr, true);
                 displayGame();
@@ -273,7 +274,6 @@
             }
         }
 
-        // Auto-save game settings when host makes changes
         async function saveGameSettings() {
             if (!currentGame || !isHostOfGame(currentGame.id)) return;
 
@@ -290,7 +290,6 @@
 
             if (selectedDays.length === 0) {
                 showError('Please select at least one day');
-                // Re-check at least one checkbox
                 document.getElementById('day-saturday').checked = true;
                 return;
             }
@@ -298,20 +297,21 @@
             try {
                 const res = await fetch(`${API_BASE}/games/${currentGame.id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    },
                     body: JSON.stringify({
                         title: title,
                         venue: venueName,
                         game_date: currentGame.game_date,
                         min_players: minPlayers,
                         max_players: maxPlayers,
-                        selected_days: selectedDays,
-                        organizer_name: currentGame.organizer_name
+                        selected_days: selectedDays
                     })
                 });
                 currentGame = await res.json();
                 showToast('Saved');
-                // Update display (tabs, etc.)
                 displayGame();
             } catch (e) {
                 console.error('Error saving game:', e);
@@ -794,7 +794,8 @@
         async function deleteGame(gameId) {
             try {
                 const res = await fetch(`${API_BASE}/games/${gameId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
                 });
 
                 if (!res.ok) {
@@ -802,10 +803,8 @@
                     throw new Error(data.message || 'Failed to delete game');
                 }
 
-                // Remove from history and localStorage
                 removeFromGameHistory(gameId);
 
-                // If this was the current game, clear the display
                 if (currentGame?.id === gameId) {
                     currentGame = null;
                     document.getElementById('game-title').value = '';
@@ -901,6 +900,47 @@
             document.getElementById('game-title').addEventListener('blur', saveGameSettings);
             document.getElementById('venue-select').addEventListener('change', saveGameSettings);
         });
+
+        // ============ ORGANIZER IDENTITY ============
+
+        function getOrganizerToken() {
+            return localStorage.getItem('organizer_token');
+        }
+
+        function generateOrganizerToken() {
+            // Generate UUID v4
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        async function ensureOrganizer(name = 'Organizer') {
+            let token = getOrganizerToken();
+            if (!token) {
+                token = generateOrganizerToken();
+                localStorage.setItem('organizer_token', token);
+            }
+
+            // Create/get organizer record on server
+            try {
+                await fetch(`${API_BASE}/organizers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: token, name: name })
+                });
+            } catch (e) {
+                console.error('Failed to create organizer:', e);
+            }
+
+            return token;
+        }
+
+        function getAuthHeaders() {
+            const token = getOrganizerToken();
+            return token ? { 'X-Organizer-Token': token } : {};
+        }
     </script>
 </head>
 
