@@ -185,6 +185,8 @@
                     venueSelect.value = venueObj.id;
                 }
             }
+            // Update venue info text to match loaded game
+            updateVenueInfo();
 
             // Update day checkboxes based on game's selected_days
             const selectedDays = currentGame.selected_days || ['saturday', 'sunday'];
@@ -252,6 +254,12 @@
             }
         }
 
+        function formatTime(hour) {
+            if (hour > 12) return `${hour - 12}:00 PM`;
+            if (hour === 12) return '12:00 PM';
+            return `${hour}:00 AM`;
+        }
+
         function renderHeatmap(heatmapData, totalPlayers) {
             const container = document.getElementById('heatmap-slots');
             if (!container) return;
@@ -282,59 +290,84 @@
             let html = '';
             timeSlots.forEach((slot, idx) => {
                 const hour = parseInt(slot.split(':')[0]);
-                const displayTime = hour > 12 ? `${hour - 12}:00 AM` : (hour === 12 ? '12:00 PM' : `${hour}:00 AM`);
-                if (hour > 12) {
-                    displayTime = `${hour - 12}:00 PM`;
-                } else if (hour === 12) {
-                    displayTime = '12:00 PM';
-                } else {
-                    displayTime = `${hour}:00 AM`;
-                }
+                const displayTime = formatTime(hour);
 
                 const slotData = slotLookup[slot] || { available_count: 0, total_count: 0, available_players: [] };
                 const availCount = slotData.available_count;
-                const ratio = totalPlayers > 0 ? availCount / totalPlayers : 0;
+
+                // Calculate progress toward minimum requirement (0 to 1+)
+                const progressRatio = minPlayers > 0 ? availCount / minPlayers : 0;
                 const isBestSlot = bestSlot && bestSlot.time_slot === slot && bestCount > 0;
+                const meetsRequirement = availCount >= minPlayers;
 
-                // Blue color scheme based on ratio
-                let barColor = 'bg-slate-100 dark:bg-slate-800';
-                let borderColor = 'border-slate-300';
-                let textColor = 'text-slate-400';
+                // Gradient color scheme based on progress toward min players
+                let barColor, borderColor, textColor, barWidth;
 
-                if (isBestSlot) {
-                    barColor = 'bg-primary';
-                    borderColor = 'border-yellow-400';
+                if (meetsRequirement) {
+                    // GREEN - requirement met!
+                    barColor = isBestSlot ? 'bg-emerald-500' : 'bg-emerald-400';
+                    borderColor = isBestSlot ? 'border-yellow-400' : 'border-emerald-600';
                     textColor = 'text-white';
-                } else if (ratio >= 0.7) {
-                    barColor = 'bg-blue-400';
+                    barWidth = '100%';
+                } else if (progressRatio >= 0.75) {
+                    // Almost there - dark blue
+                    barColor = 'bg-blue-500';
                     borderColor = 'border-blue-600';
                     textColor = 'text-white';
-                } else if (ratio >= 0.5) {
-                    barColor = 'bg-blue-300 dark:bg-blue-800';
+                    barWidth = '100%';
+                } else if (progressRatio >= 0.5) {
+                    // Halfway - medium blue
+                    barColor = 'bg-blue-400';
                     borderColor = 'border-blue-500';
-                    textColor = 'text-blue-900 dark:text-blue-100';
-                } else if (ratio >= 0.3) {
-                    barColor = 'bg-blue-200 dark:bg-blue-900/50';
+                    textColor = 'text-white';
+                    barWidth = '100%';
+                } else if (progressRatio >= 0.25) {
+                    // Quarter way - light blue
+                    barColor = 'bg-blue-300';
                     borderColor = 'border-blue-400';
-                    textColor = 'text-blue-700 dark:text-blue-200';
-                } else if (ratio > 0) {
-                    barColor = 'bg-slate-200 dark:bg-slate-700';
-                    borderColor = 'border-slate-400';
-                    textColor = 'text-slate-600 dark:text-slate-300';
+                    textColor = 'text-blue-800';
+                    barWidth = '100%';
+                } else if (progressRatio > 0) {
+                    // Just started - very light blue
+                    barColor = 'bg-blue-200';
+                    borderColor = 'border-blue-300';
+                    textColor = 'text-blue-700';
+                    barWidth = '100%';
+                } else {
+                    // Empty
+                    barColor = 'bg-slate-100 dark:bg-slate-800';
+                    borderColor = 'border-slate-200 dark:border-slate-700';
+                    textColor = 'text-slate-400';
+                    barWidth = '100%';
+                }
+
+                // Best slot gets gold highlight
+                if (isBestSlot && bestCount > 0) {
+                    borderColor = 'border-yellow-400';
                 }
 
                 // Player names tooltip
-                const playerNames = slotData.available_players?.join(', ') || 'No one available';
-                const rowBg = isBestSlot ? 'bg-blue-50/50 dark:bg-blue-900/10' : '';
-                const timeStyle = isBestSlot ? 'font-bold text-primary dark:text-blue-400' : 'font-semibold text-slate-600 dark:text-slate-300';
+                const playerNames = slotData.available_players?.length > 0
+                    ? slotData.available_players.join(', ')
+                    : 'No one available';
+                const rowBg = isBestSlot ? 'bg-emerald-50/50 dark:bg-emerald-900/10' : '';
+                const timeStyle = isBestSlot
+                    ? 'font-bold text-emerald-600 dark:text-emerald-400'
+                    : 'font-medium text-slate-600 dark:text-slate-400';
+
+                // Status indicator
+                const statusIcon = meetsRequirement
+                    ? '<span class="material-symbols-outlined text-xs text-white ml-1">check_circle</span>'
+                    : '';
 
                 html += `
-                <div class="grid grid-cols-12 items-center ${rowBg}">
-                    <div class="col-span-4 p-4 text-sm ${timeStyle}">${displayTime}</div>
-                    <div class="col-span-8 p-2 pr-4">
-                        <div class="w-full h-10 rounded-lg ${barColor} flex items-center justify-center border-l-4 ${borderColor} ${isBestSlot ? 'shadow-sm' : ''}"
+                <div class="grid grid-cols-12 items-center ${rowBg} ${idx < timeSlots.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}">
+                    <div class="col-span-3 p-3 text-sm ${timeStyle}">${displayTime}</div>
+                    <div class="col-span-9 p-2 pr-4">
+                        <div class="w-full h-9 rounded-lg ${barColor} flex items-center justify-between px-3 border-l-4 ${borderColor} ${isBestSlot ? 'shadow-md ring-2 ring-yellow-400/30' : ''}"
                              title="${playerNames}">
-                            <span class="text-xs font-bold ${textColor}">${availCount}/${totalPlayers} players</span>
+                            <span class="text-xs font-bold ${textColor}">${availCount}/${minPlayers}${statusIcon}</span>
+                            <span class="text-[10px] ${textColor} opacity-75 truncate ml-2 max-w-[120px]">${availCount > 0 ? playerNames : ''}</span>
                         </div>
                     </div>
                 </div>`;
@@ -346,23 +379,30 @@
             const suggestedEl = document.getElementById('suggested-time');
             const suggestedTimeDisplay = document.getElementById('suggested-time-display');
             const playerCountEl = document.getElementById('suggested-player-count');
+            const bannerEl = document.querySelector('#heatmap-section .bg-gradient-to-br');
 
             if (bestSlot && bestCount > 0) {
-                const hour = parseInt(bestSlot.time_slot.split(':')[0]);
-                let displayTime;
-                if (hour > 12) {
-                    displayTime = `${hour - 12}:00 PM`;
-                } else if (hour === 12) {
-                    displayTime = '12:00 PM';
-                } else {
-                    displayTime = `${hour}:00 AM`;
-                }
+                const displayTime = formatTime(parseInt(bestSlot.time_slot.split(':')[0]));
+                const meetsMin = bestCount >= minPlayers;
 
                 if (suggestedTimeDisplay) suggestedTimeDisplay.textContent = displayTime;
-                if (playerCountEl) playerCountEl.textContent = `${bestCount} of ${totalPlayers} players available`;
+                if (playerCountEl) {
+                    playerCountEl.textContent = meetsMin
+                        ? `${bestCount} players ready - Let's play!`
+                        : `${bestCount}/${minPlayers} players (need ${minPlayers - bestCount} more)`;
+                }
                 if (suggestedEl) {
                     const dayLabel = currentHeatmapDay.charAt(0).toUpperCase() + currentHeatmapDay.slice(1);
-                    suggestedEl.textContent = `${dayLabel} @ ${displayTime} — ${bestCount} players available`;
+                    suggestedEl.textContent = `${dayLabel} @ ${displayTime} — ${bestCount} players`;
+                }
+
+                // Update banner color based on whether requirement is met
+                if (bannerEl) {
+                    if (meetsMin) {
+                        bannerEl.className = 'bg-gradient-to-br from-emerald-500 to-emerald-700 p-5 rounded-2xl shadow-lg border-2 border-yellow-400/30 relative overflow-hidden';
+                    } else {
+                        bannerEl.className = 'bg-gradient-to-br from-primary to-blue-700 p-5 rounded-2xl shadow-lg border-2 border-yellow-400/30 relative overflow-hidden';
+                    }
                 }
             } else {
                 if (suggestedTimeDisplay) suggestedTimeDisplay.textContent = '--:--';
@@ -635,10 +675,10 @@
             <div class="px-4 pb-4">
                 <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
                     <div class="grid grid-cols-12 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                        <div class="col-span-4 p-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Time Slot</div>
-                        <div class="col-span-8 p-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Group Alignment</div>
+                        <div class="col-span-3 p-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Time</div>
+                        <div class="col-span-9 p-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Players Available</div>
                     </div>
-                    <div id="heatmap-slots" class="divide-y divide-slate-100 dark:divide-slate-800">
+                    <div id="heatmap-slots">
                         <!-- Rendered dynamically -->
                     </div>
                 </div>
