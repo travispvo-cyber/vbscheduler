@@ -22,3 +22,10 @@ GAME_TITLE_DEFAULT = "Volleyball Game"
 GAME_TITLE_MAX_LENGTH = 50
 
 PLAYER_NAME_MAX_LENGTH = 30
+
+# Predefined player roster
+PLAYER_ROSTER = [
+    "David", "Jasmine", "Mike", "Travis", "Luis",
+    "Andy", "May", "Gerry", "Justice", "Olivia",
+    "Ruben", "Alex", "Guest 1", "Guest 2"
+]

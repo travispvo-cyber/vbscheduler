@@ -60,39 +60,62 @@
         let currentGame = null;
         let currentPlayer = null;
         let availability = { saturday: null, sunday: null };
+        let playerRoster = [];
+        let registeredPlayers = [];
+        let timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+        let currentDay = 'saturday';
+        let myAvailability = {};
 
         function showError(message) {
-            // Remove existing error toasts
             document.querySelectorAll('.error-toast').forEach(el => el.remove());
-
             const toast = document.createElement('div');
             toast.className = 'error-toast fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
             toast.textContent = message;
             document.body.appendChild(toast);
-
             setTimeout(() => toast.remove(), 4000);
+        }
+
+        function showSuccess(message) {
+            document.querySelectorAll('.success-toast').forEach(el => el.remove());
+            const toast = document.createElement('div');
+            toast.className = 'success-toast fixed bottom-20 left-1/2 -translate-x-1/2 bg-success-green text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
         }
 
         async function apiCall(url, options = {}) {
             try {
                 const res = await fetch(url, {
                     ...options,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...options.headers
-                    }
+                    headers: { 'Content-Type': 'application/json', ...options.headers }
                 });
-
                 const data = await res.json();
-
-                if (!res.ok) {
-                    throw new Error(data.message || 'Request failed');
-                }
-
+                if (!res.ok) throw new Error(data.message || 'Request failed');
                 return data;
             } catch (err) {
                 showError(err.message);
                 throw err;
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                const config = await apiCall(`${API_BASE}/config`);
+                playerRoster = config.player_roster || [];
+                timeSlots = config.time_slots || timeSlots;
+            } catch (e) {
+                console.error('Failed to load config:', e);
+            }
+        }
+
+        async function loadRegisteredPlayers() {
+            if (!currentGame) return;
+            try {
+                const players = await apiCall(`${API_BASE}/games/${currentGame.id}/players`);
+                registeredPlayers = players.map(p => p.name);
+            } catch (e) {
+                console.error('Failed to load players:', e);
             }
         }
 
@@ -105,24 +128,26 @@
                 return;
             }
 
+            await loadConfig();
             await loadGame(gameId);
+            await loadRegisteredPlayers();
             checkExistingPlayer();
             setupEventListeners();
+
+            // If player is already registered, show time slots UI
+            if (currentPlayer) {
+                showTimeSlotsUI();
+            }
         }
 
         async function loadGame(gameId) {
             try {
-                const res = await fetch(`${API_BASE}/games/${gameId}`);
-                const data = await res.json();
-                if (!res.ok) {
-                    throw new Error(data.message || 'Game not found');
-                }
+                const data = await apiCall(`${API_BASE}/games/${gameId}`);
                 currentGame = data;
                 displayGame();
                 await loadGroupAvailability();
             } catch (e) {
                 console.error('Error loading game:', e);
-                showError(e.message || 'Game not found. Please check your invite link.');
                 document.getElementById('game-title').textContent = 'Game Not Found';
                 document.getElementById('game-venue').textContent = 'Please check your invite link';
             }
@@ -131,13 +156,10 @@
         function displayGame() {
             if (!currentGame) return;
             const gameDate = new Date(currentGame.game_date);
-            const options = { month: 'short', day: 'numeric' };
-            const dateStr = gameDate.toLocaleDateString('en-US', options);
 
-            // Calculate weekend dates
             const satDate = new Date(currentGame.game_date);
             const sunDate = new Date(currentGame.game_date);
-            if (satDate.getDay() === 0) { // Sunday
+            if (satDate.getDay() === 0) {
                 satDate.setDate(satDate.getDate() - 1);
             } else {
                 sunDate.setDate(sunDate.getDate() + 1);
@@ -158,17 +180,14 @@
         async function loadGroupAvailability() {
             if (!currentGame) return;
             try {
-                const res = await fetch(`${API_BASE}/games/${currentGame.id}/availability`);
-                const allAvail = await res.json();
+                const allAvail = await apiCall(`${API_BASE}/games/${currentGame.id}/availability`);
 
-                // Count by day
                 const satCount = new Set(allAvail.filter(a => a.day === 'saturday' && a.status === 'available').map(a => a.player_id)).size;
                 const sunCount = new Set(allAvail.filter(a => a.day === 'sunday' && a.status === 'available').map(a => a.player_id)).size;
 
                 document.getElementById('sat-count').textContent = `${satCount} / 12 Confirmed`;
                 document.getElementById('sun-count').textContent = `${sunCount} / 12 Confirmed`;
 
-                // Get player names for display
                 const satPlayers = [...new Set(allAvail.filter(a => a.day === 'saturday' && a.status === 'available').map(a => a.player_name))];
                 const sunPlayers = [...new Set(allAvail.filter(a => a.day === 'sunday' && a.status === 'available').map(a => a.player_name))];
 
@@ -196,71 +215,84 @@
                 return false;
             }
             try {
-                const res = await fetch(`${API_BASE}/games/${currentGame.id}/players`, {
+                const data = await apiCall(`${API_BASE}/games/${currentGame.id}/players`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name })
                 });
-                const data = await res.json();
-                if (!res.ok) {
-                    throw new Error(data.message || 'Failed to register');
-                }
                 currentPlayer = data;
                 localStorage.setItem(`player_${currentGame.id}`, currentPlayer.id);
                 localStorage.setItem(`playerName_${currentGame.id}`, currentPlayer.name);
+                registeredPlayers.push(name);
                 return true;
             } catch (e) {
                 console.error('Error registering player:', e);
-                showError(e.message || 'Failed to register player');
                 return false;
             }
         }
 
-        function showNamePrompt(day, status) {
+        function getAvailableNames() {
+            return playerRoster.filter(name => !registeredPlayers.includes(name));
+        }
+
+        async function showNamePrompt(day, status) {
             if (!currentGame) {
                 showError('Game not loaded. Please refresh the page.');
                 return;
             }
             if (currentPlayer) {
                 setAvailability(day, status);
+                if (status === 'available') showTimeSlotsUI();
                 return;
             }
+
+            // Refresh registered players before showing dropdown
+            await loadRegisteredPlayers();
+            const availableNames = getAvailableNames();
 
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4';
             modal.innerHTML = `
                 <div class="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-sm w-full">
-                    <h3 class="text-lg font-bold mb-4 text-center">What's your name?</h3>
-                    <input id="player-name-input" type="text" placeholder="Enter your name"
-                        class="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
+                    <h3 class="text-lg font-bold mb-4 text-center">Who are you?</h3>
+                    ${availableNames.length > 0 ? `
+                        <select id="player-name-select"
+                            class="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                            <option value="">Select your name...</option>
+                            ${availableNames.map(name => `<option value="${name}">${name}</option>`).join('')}
+                        </select>
+                    ` : `
+                        <p class="text-center text-gray-500 mb-4">All players have already registered.</p>
+                    `}
                     <button id="confirm-name-btn"
-                        class="w-full bg-primary text-white py-3 rounded-xl font-bold">
+                        class="w-full bg-primary text-white py-3 rounded-xl font-bold ${availableNames.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}"
+                        ${availableNames.length === 0 ? 'disabled' : ''}>
                         Confirm
                     </button>
                 </div>
             `;
             document.body.appendChild(modal);
 
-            const input = document.getElementById('player-name-input');
+            const select = document.getElementById('player-name-select');
             const btn = document.getElementById('confirm-name-btn');
 
-            btn.addEventListener('click', async () => {
-                const name = input.value.trim();
-                if (!name) {
-                    alert('Please enter your name');
-                    return;
-                }
-                if (await registerPlayer(name)) {
-                    modal.remove();
-                    setAvailability(day, status);
-                }
-            });
+            if (select) {
+                btn.addEventListener('click', async () => {
+                    const name = select.value;
+                    if (!name) {
+                        showError('Please select your name');
+                        return;
+                    }
+                    if (await registerPlayer(name)) {
+                        modal.remove();
+                        setAvailability(day, status);
+                        if (status === 'available') showTimeSlotsUI();
+                    }
+                });
+            }
 
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) modal.remove();
             });
-
-            input.focus();
         }
 
         function setAvailability(day, status) {
@@ -272,7 +304,6 @@
             const inBtn = document.getElementById(`${day}-in-btn`);
             const outBtn = document.getElementById(`${day}-out-btn`);
 
-            // Reset both buttons
             inBtn.className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 text-gray-400 font-bold';
             outBtn.className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 text-gray-400 font-bold';
 
@@ -283,25 +314,139 @@
             }
         }
 
+        // ============ TIME SLOTS UI ============
+
+        function showTimeSlotsUI() {
+            const container = document.getElementById('time-slots-section');
+            if (!container) return;
+            container.classList.remove('hidden');
+            renderTimeSlots();
+            loadHeatmap();
+        }
+
+        function renderTimeSlots() {
+            const container = document.getElementById('time-slots-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            timeSlots.forEach((slot, idx) => {
+                const hour = parseInt(slot.split(':')[0]);
+                const displayTime = hour > 12 ? `${hour - 12} PM` : (hour === 12 ? '12 PM' : `${hour} AM`);
+
+                const row = document.createElement('div');
+                row.className = 'grid grid-cols-12 items-center' + (idx < timeSlots.length - 1 ? ' border-b border-gray-100 dark:border-gray-800' : '');
+                row.innerHTML = `
+                    <div class="col-span-2 text-[10px] font-bold text-right pr-2 text-gray-400">${displayTime}</div>
+                    <div class="col-span-5 p-1">
+                        <button data-slot="${slot}" class="slot-btn w-full h-10 rounded-md bg-gray-200 dark:bg-gray-700 transition-colors active:scale-95 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-gray-400 text-sm">help</span>
+                        </button>
+                    </div>
+                    <div class="col-span-5 p-1">
+                        <div id="heatmap-${slot}" class="w-full h-10 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                            <span class="text-[10px] font-bold text-gray-400">0/0</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+
+            document.querySelectorAll('.slot-btn').forEach(btn => {
+                btn.addEventListener('click', () => toggleSlot(btn));
+            });
+        }
+
+        function toggleSlot(btn) {
+            const slot = btn.dataset.slot;
+            const key = `${currentDay}_${slot}`;
+            const icon = btn.querySelector('.material-symbols-outlined');
+
+            if (myAvailability[key] === 'available') {
+                myAvailability[key] = 'unavailable';
+                btn.className = 'slot-btn w-full h-10 rounded-md bg-error-red transition-colors active:scale-95 flex items-center justify-center';
+                icon.textContent = 'close';
+                icon.className = 'material-symbols-outlined text-white text-sm';
+            } else if (myAvailability[key] === 'unavailable') {
+                delete myAvailability[key];
+                btn.className = 'slot-btn w-full h-10 rounded-md bg-gray-200 dark:bg-gray-700 transition-colors active:scale-95 flex items-center justify-center';
+                icon.textContent = 'help';
+                icon.className = 'material-symbols-outlined text-gray-400 text-sm';
+            } else {
+                myAvailability[key] = 'available';
+                btn.className = 'slot-btn w-full h-10 rounded-md bg-success-green transition-colors active:scale-95 flex items-center justify-center';
+                icon.textContent = 'check';
+                icon.className = 'material-symbols-outlined text-white text-sm';
+            }
+        }
+
+        function switchDay(day) {
+            currentDay = day;
+            document.getElementById('sat-tab').className = day === 'saturday'
+                ? 'flex-1 py-2 rounded-lg bg-primary text-white font-bold'
+                : 'flex-1 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-400 font-medium';
+            document.getElementById('sun-tab').className = day === 'sunday'
+                ? 'flex-1 py-2 rounded-lg bg-primary text-white font-bold'
+                : 'flex-1 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-400 font-medium';
+            renderTimeSlots();
+            loadHeatmap();
+        }
+
+        async function loadHeatmap() {
+            if (!currentGame) return;
+            try {
+                const heatmapData = await apiCall(`${API_BASE}/games/${currentGame.id}/heatmap`);
+                const dayData = heatmapData.find(d => d.day === currentDay);
+                if (!dayData) return;
+
+                dayData.slots.forEach(slot => {
+                    const el = document.getElementById(`heatmap-${slot.time_slot}`);
+                    if (el) {
+                        const ratio = slot.total_count > 0 ? slot.available_count / slot.total_count : 0;
+                        let bgClass = 'bg-gray-100 dark:bg-gray-800';
+                        let textClass = 'text-gray-400';
+
+                        if (ratio >= 0.8) {
+                            bgClass = 'bg-gray-500 dark:bg-gray-400';
+                            textClass = 'text-white dark:text-gray-900';
+                        } else if (ratio >= 0.6) {
+                            bgClass = 'bg-gray-400 dark:bg-gray-500';
+                            textClass = 'text-white';
+                        } else if (ratio >= 0.4) {
+                            bgClass = 'bg-gray-300 dark:bg-gray-600';
+                            textClass = 'text-gray-600 dark:text-gray-300';
+                        } else if (ratio > 0) {
+                            bgClass = 'bg-gray-200 dark:bg-gray-700';
+                            textClass = 'text-gray-500';
+                        }
+
+                        el.className = `w-full h-10 rounded-md ${bgClass} flex items-center justify-center`;
+                        el.innerHTML = `<span class="text-[10px] font-bold ${textClass}">${slot.available_count}/${slot.total_count}</span>`;
+                    }
+                });
+            } catch (e) {
+                console.error('Error loading heatmap:', e);
+            }
+        }
+
         async function saveAvailability() {
             if (!currentPlayer) {
-                alert('Please select your availability first');
+                showError('Please select your name first');
                 return;
             }
 
-            const timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
-
             try {
                 for (const day of ['saturday', 'sunday']) {
-                    if (availability[day]) {
-                        const slots = {};
-                        timeSlots.forEach(slot => {
-                            slots[slot] = availability[day];
-                        });
+                    const slots = {};
+                    timeSlots.forEach(slot => {
+                        const key = `${day}_${slot}`;
+                        if (myAvailability[key]) {
+                            slots[slot] = myAvailability[key];
+                        }
+                    });
 
-                        await fetch(`${API_BASE}/games/${currentGame.id}/availability`, {
+                    if (Object.keys(slots).length > 0) {
+                        await apiCall(`${API_BASE}/games/${currentGame.id}/availability`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 player_id: currentPlayer.id,
                                 day: day,
@@ -311,11 +456,11 @@
                     }
                 }
 
-                alert('Availability saved!');
+                showSuccess('Availability saved!');
                 await loadGroupAvailability();
+                await loadHeatmap();
             } catch (e) {
                 console.error('Error saving availability:', e);
-                alert('Failed to save availability');
             }
         }
 
@@ -325,6 +470,8 @@
             document.getElementById('sunday-in-btn').addEventListener('click', () => showNamePrompt('sunday', 'available'));
             document.getElementById('sunday-out-btn').addEventListener('click', () => showNamePrompt('sunday', 'unavailable'));
             document.getElementById('save-btn').addEventListener('click', saveAvailability);
+            document.getElementById('sat-tab')?.addEventListener('click', () => switchDay('saturday'));
+            document.getElementById('sun-tab')?.addEventListener('click', () => switchDay('sunday'));
         }
 
         document.addEventListener('DOMContentLoaded', init);
@@ -384,7 +531,7 @@
             </div>
         </div>
         <!-- Availability Section: Sunday -->
-        <div class="mb-24">
+        <div class="mb-6">
             <div class="flex items-center justify-between px-4 pb-2 pt-4">
                 <h3 class="text-[#111418] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">Sunday
                 </h3>
@@ -417,6 +564,51 @@
                 </div>
             </div>
         </div>
+
+        <!-- Time Slots Section (shown after player registers) -->
+        <div id="time-slots-section" class="hidden mb-24">
+            <div class="px-4 pb-4">
+                <div class="bg-primary/5 dark:bg-primary/10 p-4 rounded-xl border border-primary/20">
+                    <h3 class="text-sm font-semibold text-primary uppercase mb-3">Mark Your Time Availability</h3>
+                    <div class="flex flex-wrap gap-4 items-center text-sm mb-3">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-success-green"></div>
+                            <span class="text-[#617589] dark:text-gray-400">Available</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-error-red"></div>
+                            <span class="text-[#617589] dark:text-gray-400">Unavailable</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-gray-300 dark:bg-gray-600"></div>
+                            <span class="text-[#617589] dark:text-gray-400">Group</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-[#617589] dark:text-gray-400 italic">Tap time slots to toggle your availability</p>
+                </div>
+            </div>
+
+            <!-- Day Tabs -->
+            <div class="flex px-4 gap-2 mb-2">
+                <button id="sat-tab" class="flex-1 py-2 rounded-lg bg-primary text-white font-bold">Saturday</button>
+                <button id="sun-tab" class="flex-1 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-400 font-medium">Sunday</button>
+            </div>
+
+            <!-- Time Slots Grid -->
+            <div class="px-4">
+                <div class="bg-white dark:bg-gray-900 rounded-xl border border-[#dbe0e6] dark:border-gray-700 overflow-hidden ios-shadow">
+                    <div class="grid grid-cols-12 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                        <div class="col-span-2 p-2"></div>
+                        <div class="col-span-5 p-2 text-center text-xs font-bold text-[#617589] dark:text-gray-400 uppercase">My Status</div>
+                        <div class="col-span-5 p-2 text-center text-xs font-bold text-[#617589] dark:text-gray-400 uppercase">Group</div>
+                    </div>
+                    <div id="time-slots-container" class="divide-y divide-gray-100 dark:divide-gray-800">
+                        <!-- Time slots rendered dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Sticky Bottom CTA -->
         <div
             class="fixed bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-t border-gray-100 dark:border-gray-800 max-w-md mx-auto">

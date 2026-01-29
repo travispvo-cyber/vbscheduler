@@ -11,7 +11,7 @@ from models import (
     HeatmapSlot, HeatmapResponse,
     OrganizerAuth
 )
-from constants import VENUES, TIME_SLOTS, DAYS, MAX_PLAYERS_DEFAULT, MAX_PLAYERS_MIN, MAX_PLAYERS_MAX
+from constants import VENUES, TIME_SLOTS, DAYS, MAX_PLAYERS_DEFAULT, MAX_PLAYERS_MIN, MAX_PLAYERS_MAX, PLAYER_ROSTER
 
 app = FastAPI(
     title="VB Scheduler API",
@@ -321,7 +321,8 @@ def get_config():
             "default": MAX_PLAYERS_DEFAULT,
             "min": MAX_PLAYERS_MIN,
             "max": MAX_PLAYERS_MAX
-        }
+        },
+        "player_roster": PLAYER_ROSTER
     }
 
 
