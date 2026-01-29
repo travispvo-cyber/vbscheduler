@@ -10,6 +10,7 @@ from models import (
     AvailabilityCreate, AvailabilityBulkCreate, AvailabilityResponse,
     HeatmapSlot, HeatmapResponse
 )
+from constants import VENUES, TIME_SLOTS, DAYS, MAX_PLAYERS_DEFAULT, MAX_PLAYERS_MIN, MAX_PLAYERS_MAX
 
 app = FastAPI(
     title="VB Scheduler API",
@@ -211,6 +212,23 @@ def get_heatmap(game_id: str):
             ))
 
         return [HeatmapResponse(day=day, slots=slots) for day, slots in heatmap.items()]
+
+
+# ============ CONFIGURATION ============
+
+@app.get("/api/config")
+def get_config():
+    """Return application configuration for frontend."""
+    return {
+        "venues": VENUES,
+        "time_slots": TIME_SLOTS,
+        "days": DAYS,
+        "max_players": {
+            "default": MAX_PLAYERS_DEFAULT,
+            "min": MAX_PLAYERS_MIN,
+            "max": MAX_PLAYERS_MAX
+        }
+    }
 
 
 # ============ HEALTH CHECK ============
