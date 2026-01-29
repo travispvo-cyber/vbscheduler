@@ -45,7 +45,8 @@ class GameResponse(BaseModel):
     max_players: int
     min_players: Optional[int] = 4
     selected_days: Optional[list[str]] = ["saturday", "sunday"]
-    organizer_name: Optional[str]
+    organizer_id: Optional[str] = None
+    organizer_name: Optional[str] = None
     created_at: str
 
 
@@ -113,3 +114,18 @@ class HeatmapResponse(BaseModel):
 
 class OrganizerAuth(BaseModel):
     pin: str = Field(..., min_length=4, max_length=6, pattern=r"^\d{4,6}$")
+
+
+class OrganizerCreate(BaseModel):
+    id: str  # UUID as string
+    name: str = Field(..., min_length=1, max_length=50)
+
+
+class OrganizerResponse(BaseModel):
+    id: str
+    name: str
+    created_at: str
+
+
+class OrganizerUpdate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
