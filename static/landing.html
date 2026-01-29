@@ -376,6 +376,26 @@
         let timeSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
         let currentHeatmapDay = 'saturday';
 
+        let currentGameFilter = 'all';
+
+        function setGameFilter(filter) {
+            currentGameFilter = filter;
+
+            // Update button styles
+            const allBtn = document.getElementById('filter-all-btn');
+            const mineBtn = document.getElementById('filter-mine-btn');
+
+            if (filter === 'all') {
+                allBtn.className = 'px-3 py-1 rounded-full text-xs font-bold bg-primary text-white';
+                mineBtn.className = 'px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-500';
+            } else {
+                allBtn.className = 'px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-500';
+                mineBtn.className = 'px-3 py-1 rounded-full text-xs font-bold bg-primary text-white';
+            }
+
+            loadRecentGames();
+        }
+
         async function loadPlayers() {
             if (!currentGame) return;
             try {
@@ -723,8 +743,19 @@
                 if (!res.ok) throw new Error('Failed to load games');
                 const games = await res.json();
 
-                if (games.length === 0) {
-                    section?.classList.add('hidden');
+                // Filter games if "My Games" selected
+                const myToken = getOrganizerToken();
+                const filteredGames = currentGameFilter === 'mine'
+                    ? games.filter(g => g.organizer_id === myToken)
+                    : games;
+
+                if (filteredGames.length === 0) {
+                    if (currentGameFilter === 'mine') {
+                        container.innerHTML = '<p class="text-center text-gray-400 py-4 text-sm">You haven\'t created any games yet</p>';
+                        section?.classList.remove('hidden');
+                    } else {
+                        section?.classList.add('hidden');
+                    }
                     return;
                 }
 
@@ -732,9 +763,8 @@
 
                 const history = getGameHistory();
                 const visitedIds = new Set(history.map(g => g.id));
-                const myToken = getOrganizerToken();
 
-                container.innerHTML = games.map(game => {
+                container.innerHTML = filteredGames.map(game => {
                     const isVisited = visitedIds.has(game.id);
                     const isCurrentGame = currentGame?.id === game.id;
                     const isMine = game.organizer_id === myToken;
@@ -1094,7 +1124,10 @@
         <!-- Recent Games Section -->
         <div id="recent-games-section" class="pt-6">
             <div class="flex items-center justify-between px-4 pb-3">
-                <h3 class="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Recent Games</h3>
+                <div class="flex gap-2">
+                    <button id="filter-all-btn" onclick="setGameFilter('all')" class="px-3 py-1 rounded-full text-xs font-bold bg-primary text-white">All Games</button>
+                    <button id="filter-mine-btn" onclick="setGameFilter('mine')" class="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-500">My Games</button>
+                </div>
                 <span class="text-xs text-gray-500 dark:text-gray-400">Last 14 days</span>
             </div>
             <div id="recent-games-list" class="px-4 space-y-2">
