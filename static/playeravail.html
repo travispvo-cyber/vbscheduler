@@ -134,8 +134,9 @@
             checkExistingPlayer();
             setupEventListeners();
 
-            // If player is already registered, show time slots UI
+            // If player is already registered, show time slots UI and hide the "already signed up" link
             if (currentPlayer) {
+                document.getElementById('already-signed-up')?.classList.add('hidden');
                 showTimeSlotsUI();
             }
         }
@@ -203,6 +204,38 @@
             const savedPlayerName = localStorage.getItem(`playerName_${currentGame?.id}`);
             if (savedPlayerId && savedPlayerName) {
                 currentPlayer = { id: parseInt(savedPlayerId), name: savedPlayerName };
+                // Load existing availability for returning player
+                loadMyAvailability();
+            }
+        }
+
+        async function loadMyAvailability() {
+            if (!currentGame || !currentPlayer) return;
+            try {
+                const allAvail = await apiCall(`${API_BASE}/games/${currentGame.id}/availability`);
+                // Filter to just this player's availability
+                const myAvail = allAvail.filter(a => a.player_id === currentPlayer.id);
+
+                // Populate myAvailability object
+                myAvail.forEach(a => {
+                    const key = `${a.day}_${a.time_slot}`;
+                    myAvailability[key] = a.status;
+                });
+
+                // Also set the day-level availability buttons
+                const selectedDays = currentGame.selected_days || ['saturday', 'sunday'];
+                selectedDays.forEach(day => {
+                    const dayAvail = myAvail.filter(a => a.day === day);
+                    if (dayAvail.some(a => a.status === 'available')) {
+                        availability[day] = 'available';
+                        updateButtonStyles(day, 'available');
+                    } else if (dayAvail.some(a => a.status === 'unavailable')) {
+                        availability[day] = 'unavailable';
+                        updateButtonStyles(day, 'unavailable');
+                    }
+                });
+            } catch (e) {
+                console.error('Error loading my availability:', e);
             }
         }
 
@@ -266,6 +299,78 @@
             return playerRoster.filter(name => !registeredPlayers.includes(name));
         }
 
+        async function showReturningPlayerPrompt() {
+            if (!currentGame) {
+                showError('Game not loaded. Please refresh the page.');
+                return;
+            }
+
+            // Get the list of already-registered players
+            await loadRegisteredPlayers();
+            const players = await apiCall(`${API_BASE}/games/${currentGame.id}/players`);
+
+            if (players.length === 0) {
+                showError('No players have signed up yet.');
+                return;
+            }
+
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4';
+            modal.innerHTML = `
+                <div class="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-sm w-full">
+                    <h3 class="text-lg font-bold mb-2 text-center">Welcome back!</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4 text-center">Select your name to update your availability</p>
+                    <select id="returning-player-select"
+                        class="w-full border border-gray-200 dark:border-gray-700 rounded-xl p-3 mb-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                        <option value="">Select your name...</option>
+                        ${players.map(p => `<option value="${p.id}" data-name="${p.name}">${p.name}</option>`).join('')}
+                    </select>
+                    <button id="confirm-returning-btn"
+                        class="w-full bg-primary text-white py-3 rounded-xl font-bold">
+                        Continue
+                    </button>
+                    <button id="cancel-returning-btn"
+                        class="w-full text-gray-500 py-2 mt-2 text-sm">
+                        Cancel
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            const select = document.getElementById('returning-player-select');
+            const confirmBtn = document.getElementById('confirm-returning-btn');
+            const cancelBtn = document.getElementById('cancel-returning-btn');
+
+            confirmBtn.addEventListener('click', async () => {
+                const playerId = select.value;
+                const playerName = select.options[select.selectedIndex]?.dataset.name;
+                if (!playerId || !playerName) {
+                    showError('Please select your name');
+                    return;
+                }
+
+                // Set current player and save to localStorage
+                currentPlayer = { id: parseInt(playerId), name: playerName };
+                localStorage.setItem(`player_${currentGame.id}`, playerId);
+                localStorage.setItem(`playerName_${currentGame.id}`, playerName);
+
+                // Load their existing availability
+                await loadMyAvailability();
+
+                modal.remove();
+                showSuccess(`Welcome back, ${playerName}!`);
+
+                // Hide the "already signed up" link and show the time slots
+                document.getElementById('already-signed-up')?.classList.add('hidden');
+                showTimeSlotsUI();
+            });
+
+            cancelBtn.addEventListener('click', () => modal.remove());
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+        }
+
         async function showNamePrompt(day, status) {
             if (!currentGame) {
                 showError('Game not loaded. Please refresh the page.');
@@ -316,6 +421,7 @@
                     }
                     if (await registerPlayer(name)) {
                         modal.remove();
+                        document.getElementById('already-signed-up')?.classList.add('hidden');
                         setAvailability(day, status);
                         if (status === 'available') showTimeSlotsUI();
                     }
@@ -365,13 +471,30 @@
                 const hour = parseInt(slot.split(':')[0]);
                 const displayTime = hour > 12 ? `${hour - 12} PM` : (hour === 12 ? '12 PM' : `${hour} AM`);
 
+                // Check if we have pre-loaded availability for this slot
+                const key = `${currentDay}_${slot}`;
+                const status = myAvailability[key];
+                let btnClass = 'slot-btn w-full h-10 rounded-md bg-gray-200 dark:bg-gray-700 transition-colors active:scale-95 flex items-center justify-center';
+                let iconClass = 'material-symbols-outlined text-gray-400 text-sm';
+                let iconText = 'help';
+
+                if (status === 'available') {
+                    btnClass = 'slot-btn w-full h-10 rounded-md bg-success-green transition-colors active:scale-95 flex items-center justify-center';
+                    iconClass = 'material-symbols-outlined text-white text-sm';
+                    iconText = 'check';
+                } else if (status === 'unavailable') {
+                    btnClass = 'slot-btn w-full h-10 rounded-md bg-error-red transition-colors active:scale-95 flex items-center justify-center';
+                    iconClass = 'material-symbols-outlined text-white text-sm';
+                    iconText = 'close';
+                }
+
                 const row = document.createElement('div');
                 row.className = 'grid grid-cols-12 items-center' + (idx < timeSlots.length - 1 ? ' border-b border-gray-100 dark:border-gray-800' : '');
                 row.innerHTML = `
                     <div class="col-span-2 text-[10px] font-bold text-right pr-2 text-gray-400">${displayTime}</div>
                     <div class="col-span-5 p-1">
-                        <button data-slot="${slot}" class="slot-btn w-full h-10 rounded-md bg-gray-200 dark:bg-gray-700 transition-colors active:scale-95 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-gray-400 text-sm">help</span>
+                        <button data-slot="${slot}" class="${btnClass}">
+                            <span class="${iconClass}">${iconText}</span>
                         </button>
                     </div>
                     <div class="col-span-5 p-1">
@@ -612,6 +735,15 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Already Signed Up Link (shown for returning players) -->
+        <div id="already-signed-up" class="px-4 mb-4">
+            <button onclick="showReturningPlayerPrompt()"
+                class="w-full py-3 border-2 border-dashed border-primary/30 rounded-xl flex items-center justify-center gap-2 text-primary font-medium hover:bg-primary/5 transition-colors">
+                <span class="material-symbols-outlined text-sm">history</span>
+                Already signed up? Update your availability
+            </button>
         </div>
 
         <!-- Time Slots Section (shown after player registers) -->
