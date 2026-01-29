@@ -730,15 +730,17 @@
 
                 section?.classList.remove('hidden');
 
-                // Get local history to check which ones we've visited
                 const history = getGameHistory();
                 const visitedIds = new Set(history.map(g => g.id));
+                const myToken = getOrganizerToken();
 
                 container.innerHTML = games.map(game => {
                     const isVisited = visitedIds.has(game.id);
                     const isCurrentGame = currentGame?.id === game.id;
+                    const isMine = game.organizer_id === myToken;
                     const gameDate = parseLocalDate(game.game_date);
                     const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                    const organizerDisplay = game.organizer_name ? `by ${game.organizer_name}` : '';
 
                     return `
                     <div onclick="loadGame('${game.id}')"
@@ -750,8 +752,12 @@
                         <div class="flex-1 min-w-0">
                             <p class="text-[#111418] dark:text-white text-sm font-semibold truncate">${game.title}</p>
                             <p class="text-gray-500 dark:text-gray-400 text-xs">${game.venue} · ${dateStr}</p>
+                            ${organizerDisplay ? `<p class="text-gray-400 dark:text-gray-500 text-xs">${organizerDisplay}</p>` : ''}
                         </div>
-                        ${isVisited ? '<span class="material-symbols-outlined text-primary text-sm">check_circle</span>' : ''}
+                        <div class="flex items-center gap-1">
+                            ${isMine ? '<span class="material-symbols-outlined text-primary text-sm" title="Your game">person</span>' : ''}
+                            ${isVisited ? '<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>' : ''}
+                        </div>
                     </div>`;
                 }).join('');
 
