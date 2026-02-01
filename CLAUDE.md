@@ -4,7 +4,9 @@
 
 Volleyball scheduler app for coordinating games with friends. FastAPI backend, SQLite database, vanilla HTML/JS frontend.
 
-**Stack:** Python 3.11, FastAPI, SQLite, Tailwind CSS
+**Stack:** Python 3.11, FastAPI, PostgreSQL (Render), Tailwind CSS
+
+**Hosting:** Render Pro subscription
 
 ## Development Workflow
 
@@ -98,4 +100,4 @@ Build: pip install -r backend/requirements.txt
 Start: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
-Database persists on Render disk at `/data/volleyball.db`
+Database: Render PostgreSQL (connection via `DATABASE_URL` env var)
