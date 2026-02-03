@@ -387,6 +387,41 @@ def delete_player(game_id: str, player_id: int, x_organizer_token: Optional[str]
         return {"message": "Player deleted"}
 
 
+@app.put("/api/games/{game_id}/players/{player_id}/availability")
+def update_player_availability(
+    game_id: str,
+    player_id: int,
+    availability: AvailabilityBulkCreate,
+    x_organizer_token: Optional[str] = Header(None)
+):
+    """Organizer can update a player's availability."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT organizer_id FROM games WHERE id = %s", (game_id,))
+        game = cursor.fetchone()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        is_organizer = x_organizer_token and game["organizer_id"] == x_organizer_token
+        if not is_organizer:
+            raise HTTPException(status_code=403, detail="Only the organizer can edit player availability")
+
+        cursor.execute("SELECT id FROM players WHERE id = %s AND game_id = %s", (player_id, game_id))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Player not found")
+
+        for time_slot, status in availability.slots.items():
+            cursor.execute("""
+                INSERT INTO availability (game_id, player_id, day, time_slot, status)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT(game_id, player_id, day, time_slot)
+                DO UPDATE SET status = EXCLUDED.status, updated_at = CURRENT_TIMESTAMP
+            """, (game_id, player_id, availability.day, time_slot, status))
+
+        return {"message": "Availability updated"}
+
+
 # ============ AVAILABILITY ============
 
 @app.post("/api/games/{game_id}/availability")
