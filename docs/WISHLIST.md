@@ -8,13 +8,15 @@ Future feature ideas to revisit later.
 
 **Problem:** Host needs to track who has chipped in for court fees.
 
-**Simple solution:** Checkbox in host view to mark players as "paid"
+**Display:** Both approaches:
+- Checkmark next to player name in roster
+- Separate "Payments" tab on organizer view
 
-**Ideas:**
+**Implementation ideas:**
 - Add `has_paid` boolean to players table
-- Show payment status in Manage Players section
+- Show payment checkmark in roster list
+- Add "Payments" tab with summary view (5/12 paid, $X collected)
 - Toggle checkbox to mark paid/unpaid
-- Optional: Show payment summary (5/12 paid)
 - Optional: Deep link to Venmo with pre-filled amount
 
 ---
