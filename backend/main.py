@@ -333,9 +333,19 @@ def get_players(game_id: str):
 
 
 @app.put("/api/games/{game_id}/players/{player_id}", response_model=PlayerResponse)
-def update_player(game_id: str, player_id: int, player: PlayerCreate):
+def update_player(game_id: str, player_id: int, player: PlayerCreate, x_organizer_token: Optional[str] = Header(None)):
     with get_db() as conn:
         cursor = conn.cursor()
+
+        # Verify game exists and check organizer auth
+        cursor.execute("SELECT organizer_id FROM games WHERE id = %s", (game_id,))
+        game = cursor.fetchone()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        is_organizer = x_organizer_token and game["organizer_id"] == x_organizer_token
+        if not is_organizer:
+            raise HTTPException(status_code=403, detail="Only the organizer can edit players")
 
         cursor.execute("SELECT * FROM players WHERE id = %s AND game_id = %s", (player_id, game_id))
         if not cursor.fetchone():
@@ -357,9 +367,20 @@ def update_player(game_id: str, player_id: int, player: PlayerCreate):
 
 
 @app.delete("/api/games/{game_id}/players/{player_id}")
-def delete_player(game_id: str, player_id: int):
+def delete_player(game_id: str, player_id: int, x_organizer_token: Optional[str] = Header(None)):
     with get_db() as conn:
         cursor = conn.cursor()
+
+        # Verify game exists and check organizer auth
+        cursor.execute("SELECT organizer_id FROM games WHERE id = %s", (game_id,))
+        game = cursor.fetchone()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        is_organizer = x_organizer_token and game["organizer_id"] == x_organizer_token
+        if not is_organizer:
+            raise HTTPException(status_code=403, detail="Only the organizer can delete players")
+
         cursor.execute("DELETE FROM players WHERE id = %s AND game_id = %s", (player_id, game_id))
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Player not found")
