@@ -392,6 +392,8 @@
             document.getElementById('create-game-btn').classList.add('hidden');
             document.getElementById('share-link-btn').classList.remove('hidden');
             document.getElementById('share-link-btn').classList.add('flex');
+            document.getElementById('new-game-btn').classList.remove('hidden');
+            document.getElementById('new-game-btn').classList.add('flex');
 
             updateTabNav();
         }
@@ -431,11 +433,11 @@
 
                 renderRoster(players, availability);
 
-                // Show management section for organizers
+                // Show management section for organizers (even with 0 players)
                 const isHost = isHostOfGame(currentGame.id);
                 const manageSection = document.getElementById('manage-players-section');
                 if (manageSection) {
-                    if (isHost && players.length > 0) {
+                    if (isHost) {
                         manageSection.classList.remove('hidden');
                         renderManagePlayersList(players, availability);
                     } else {
@@ -875,6 +877,40 @@
             }
         }
 
+        function startNewGame() {
+            // Clear current game state
+            currentGame = null;
+            localStorage.removeItem('currentGameId');
+
+            // Reset form
+            document.getElementById('game-title').value = '';
+            document.getElementById('game-title').disabled = false;
+            document.getElementById('game-title').classList.remove('bg-gray-100', 'dark:bg-gray-800', 'cursor-not-allowed', 'opacity-70');
+            document.getElementById('venue-select').selectedIndex = 0;
+            document.querySelectorAll('input[name="day-of-week"]').forEach(r => r.checked = false);
+
+            // Reset UI
+            document.getElementById('roster-list').innerHTML = '<p class="text-center text-gray-500 py-8">Create a game to see the roster</p>';
+            document.getElementById('slot-counter').textContent = '0/12 Slots';
+            document.getElementById('heatmap-section')?.classList.add('hidden');
+            document.getElementById('manage-players-section')?.classList.add('hidden');
+
+            // Toggle buttons
+            document.getElementById('create-game-btn').classList.remove('hidden');
+            document.getElementById('share-link-btn').classList.add('hidden');
+            document.getElementById('share-link-btn').classList.remove('flex');
+            document.getElementById('new-game-btn').classList.add('hidden');
+            document.getElementById('new-game-btn').classList.remove('flex');
+
+            // Hide tab nav
+            document.getElementById('tab-nav').classList.add('hidden');
+
+            // Clear URL param
+            window.history.replaceState({}, '', '/landing.html');
+
+            updateVenueInfo();
+        }
+
         function updateTabNav() {
             const tabNav = document.getElementById('tab-nav');
             if (currentGame) {
@@ -889,6 +925,7 @@
         function setupEventListeners() {
             document.getElementById('create-game-btn')?.addEventListener('click', createGame);
             document.getElementById('share-link-btn')?.addEventListener('click', () => showShareLink());
+            document.getElementById('new-game-btn')?.addEventListener('click', startNewGame);
             document.getElementById('add-friend-btn')?.addEventListener('click', () => {
                 if (currentGame) showShareLink();
                 else alert('Create a game first!');
@@ -1427,6 +1464,11 @@
                 class="hidden w-full h-14 bg-green-500 text-white rounded-xl font-bold text-base shadow-lg shadow-green-500/20 hover:bg-green-600 active:scale-[0.98] transition-all mt-2 items-center justify-center gap-2">
                 <span class="material-symbols-outlined">share</span>
                 Copy Invite Link
+            </button>
+            <button id="new-game-btn"
+                class="hidden w-full h-12 bg-white dark:bg-gray-800 text-primary border-2 border-primary rounded-xl font-bold text-sm hover:bg-primary/5 active:scale-[0.98] transition-all mt-2 items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-sm">add</span>
+                New Game
             </button>
             <p class="text-center text-[#617589] text-[10px] mt-3 uppercase tracking-widest font-bold">
                 Share the link with your friends
