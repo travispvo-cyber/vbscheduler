@@ -83,6 +83,17 @@ def init_db():
             )
         """)
 
+        # Player history for autocomplete
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS player_history (
+                id SERIAL PRIMARY KEY,
+                organizer_id UUID NOT NULL REFERENCES organizers(id) ON DELETE CASCADE,
+                player_name VARCHAR(100) NOT NULL,
+                last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(organizer_id, player_name)
+            )
+        """)
+
         conn.commit()
 
 
