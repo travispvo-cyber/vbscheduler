@@ -922,8 +922,9 @@
             init();
 
             // Auto-save when host changes settings
-            document.getElementById('day-saturday').addEventListener('change', saveGameSettings);
-            document.getElementById('day-sunday').addEventListener('change', saveGameSettings);
+            document.querySelectorAll('input[name="day-of-week"]').forEach(radio => {
+                radio.addEventListener('change', saveGameSettings);
+            });
             document.getElementById('game-title').addEventListener('blur', saveGameSettings);
             document.getElementById('venue-select').addEventListener('change', saveGameSettings);
         });
