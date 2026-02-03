@@ -291,12 +291,13 @@ def verify_organizer_pin(game_id: str, auth: OrganizerAuth):
 # ============ PLAYERS ============
 
 @app.post("/api/games/{game_id}/players", response_model=PlayerResponse)
-def add_player(game_id: str, player: PlayerCreate):
+def add_player(game_id: str, player: PlayerCreate, x_organizer_token: Optional[str] = Header(None)):
     with get_db() as conn:
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id FROM games WHERE id = %s", (game_id,))
-        if not cursor.fetchone():
+        cursor.execute("SELECT id, organizer_id FROM games WHERE id = %s", (game_id,))
+        game = cursor.fetchone()
+        if not game:
             raise HTTPException(status_code=404, detail="Game not found")
 
         cursor.execute("SELECT * FROM players WHERE game_id = %s AND name = %s", (game_id, player.name))
@@ -309,6 +310,16 @@ def add_player(game_id: str, player: PlayerCreate):
             (game_id, player.name, player.avatar_url)
         )
         row = cursor.fetchone()
+
+        # Record to player history for the game's organizer
+        if game["organizer_id"]:
+            cursor.execute("""
+                INSERT INTO player_history (organizer_id, player_name, last_used)
+                VALUES (%s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (organizer_id, player_name)
+                DO UPDATE SET last_used = CURRENT_TIMESTAMP
+            """, (game["organizer_id"], player.name))
+
         return PlayerResponse(**dict(row))
 
 
