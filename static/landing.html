@@ -1152,6 +1152,38 @@
             </div>
         </div>
 
+        <!-- Manage Players Section (Organizer Only) -->
+        <div id="manage-players-section" class="hidden pt-6">
+            <div class="flex items-center justify-between px-4 pb-3">
+                <h3 class="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Manage Players</h3>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Organizer only</span>
+            </div>
+
+            <!-- Add Player Input -->
+            <div class="px-4 pb-4">
+                <div class="flex gap-2">
+                    <div class="relative flex-1">
+                        <input type="text" id="add-player-input" placeholder="Search or type name..."
+                            class="w-full h-12 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#111418] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50"
+                            autocomplete="off" />
+                        <div id="player-suggestions" class="hidden absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                            <!-- Suggestions populated dynamically -->
+                        </div>
+                    </div>
+                    <button onclick="addPlayerFromInput()"
+                        class="h-12 px-4 bg-primary text-white rounded-xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-colors">
+                        <span class="material-symbols-outlined text-sm">person_add</span>
+                        Add
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player List -->
+            <div id="manage-players-list" class="px-4 space-y-2">
+                <!-- Players populated dynamically -->
+            </div>
+        </div>
+
         <!-- Recent Games Section -->
         <div id="recent-games-section" class="pt-6">
             <div class="flex items-center justify-between px-4 pb-3">
