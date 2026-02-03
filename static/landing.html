@@ -325,7 +325,6 @@
             const titleInput = document.getElementById('game-title');
             titleInput.value = currentGame.title || '';
 
-            // Check if this device is the host
             const isHost = isHostOfGame(currentGame.id);
             if (isHost) {
                 titleInput.disabled = false;
@@ -335,7 +334,6 @@
                 titleInput.classList.add('bg-gray-100', 'dark:bg-gray-800', 'cursor-not-allowed', 'opacity-70');
             }
 
-            // Update venue dropdown if game loaded (match by name from config)
             const venueSelect = document.getElementById('venue-select');
             if (window.appConfig?.venues) {
                 const venueObj = window.appConfig.venues.find(v => v.name === currentGame.venue);
@@ -343,33 +341,29 @@
                     venueSelect.value = venueObj.id;
                 }
             }
-            // Update venue info text to match loaded game
             updateVenueInfo();
 
-            // Update day checkboxes based on game's selected_days
-            const selectedDays = currentGame.selected_days || ['saturday', 'sunday'];
-            document.getElementById('day-saturday').checked = selectedDays.includes('saturday');
-            document.getElementById('day-sunday').checked = selectedDays.includes('sunday');
-
-            // Update heatmap tabs visibility based on selected days
-            const satTab = document.getElementById('heatmap-sat-tab');
-            const sunTab = document.getElementById('heatmap-sun-tab');
-            if (satTab && sunTab) {
-                satTab.classList.toggle('hidden', !selectedDays.includes('saturday'));
-                sunTab.classList.toggle('hidden', !selectedDays.includes('sunday'));
-                // Set default heatmap day to first available
-                if (selectedDays.length > 0) {
-                    currentHeatmapDay = selectedDays[0];
-                    switchHeatmapDay(currentHeatmapDay);
-                }
+            // Update day radio button based on game's selected_days
+            const selectedDays = currentGame.selected_days || ['sunday'];
+            const selectedDay = selectedDays[0]; // Single day
+            const radioBtn = document.querySelector(`input[name="day-of-week"][value="${selectedDay}"]`);
+            if (radioBtn) {
+                radioBtn.checked = true;
             }
 
-            // Show share button, hide create button
+            // Hide heatmap day tabs - only one day now
+            const satTab = document.getElementById('heatmap-sat-tab');
+            const sunTab = document.getElementById('heatmap-sun-tab');
+            if (satTab) satTab.classList.add('hidden');
+            if (sunTab) sunTab.classList.add('hidden');
+
+            // Set heatmap day to the selected day
+            currentHeatmapDay = selectedDay;
+
             document.getElementById('create-game-btn').classList.add('hidden');
             document.getElementById('share-link-btn').classList.remove('hidden');
             document.getElementById('share-link-btn').classList.add('flex');
 
-            // Update tab navigation
             updateTabNav();
         }
 
