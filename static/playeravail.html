@@ -207,51 +207,39 @@
             if (!currentGame) return;
             const gameDate = parseLocalDate(currentGame.game_date);
 
-            const satDate = parseLocalDate(currentGame.game_date);
-            const sunDate = parseLocalDate(currentGame.game_date);
-            if (satDate.getDay() === 0) {
-                satDate.setDate(satDate.getDate() - 1);
-            } else {
-                sunDate.setDate(sunDate.getDate() + 1);
-            }
+            // Get selected day from game (now single day)
+            const selectedDays = currentGame.selected_days || ['sunday'];
+            const selectedDay = selectedDays[0];
 
-            // Get selected days from game
-            const selectedDays = currentGame.selected_days || ['saturday', 'sunday'];
-            const hasSaturday = selectedDays.includes('saturday');
-            const hasSunday = selectedDays.includes('sunday');
+            // Capitalize day name for display
+            const dayLabel = selectedDay.charAt(0).toUpperCase() + selectedDay.slice(1);
+            const dateStr = gameDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
-            // Show actual game title
             document.getElementById('game-title').textContent = currentGame.title || 'Volleyball Game';
-
-            // Show venue with date
-            let dateStr = '';
-            if (hasSaturday && hasSunday) {
-                dateStr = `${satDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}-${sunDate.getDate()}`;
-            } else if (hasSaturday) {
-                dateStr = satDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-            } else {
-                dateStr = sunDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-            }
             document.getElementById('game-venue').textContent = `${currentGame.venue} · ${dateStr}`;
 
-            // Show/hide day sections based on host's selection
+            // Hide both day sections initially
             const satSection = document.getElementById('saturday-section');
             const sunSection = document.getElementById('sunday-section');
-            if (satSection) satSection.classList.toggle('hidden', !hasSaturday);
-            if (sunSection) sunSection.classList.toggle('hidden', !hasSunday);
+            if (satSection) satSection.classList.add('hidden');
+            if (sunSection) sunSection.classList.add('hidden');
 
-            // Update time slots tabs visibility
-            const satTab = document.getElementById('sat-tab');
-            const sunTab = document.getElementById('sun-tab');
-            if (satTab) satTab.classList.toggle('hidden', !hasSaturday);
-            if (sunTab) sunTab.classList.toggle('hidden', !hasSunday);
-
-            // Set default current day to first available
-            if (selectedDays.length > 0) {
-                currentDay = selectedDays[0];
+            // Show only the selected day section (for backward compat with sat/sun)
+            if (selectedDay === 'saturday' && satSection) {
+                satSection.classList.remove('hidden');
+            } else if (selectedDay === 'sunday' && sunSection) {
+                sunSection.classList.remove('hidden');
             }
 
-            // Update tab navigation
+            // Hide day tabs in time slots - only one day
+            const satTab = document.getElementById('sat-tab');
+            const sunTab = document.getElementById('sun-tab');
+            if (satTab) satTab.classList.add('hidden');
+            if (sunTab) sunTab.classList.add('hidden');
+
+            // Set current day to selected day
+            currentDay = selectedDay;
+
             updateTabNav();
         }
 
