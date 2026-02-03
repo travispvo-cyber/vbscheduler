@@ -225,24 +225,24 @@
             const minPlayers = venueObj?.min_players || 4;
             const maxPlayers = venueObj?.max_players || 12;
 
-            const selectedDays = [];
-            if (document.getElementById('day-saturday')?.checked) selectedDays.push('saturday');
-            if (document.getElementById('day-sunday')?.checked) selectedDays.push('sunday');
-
-            if (selectedDays.length === 0) {
-                showError('Please select at least one day');
+            // Get selected day from radio buttons
+            const selectedDayRadio = document.querySelector('input[name="day-of-week"]:checked');
+            if (!selectedDayRadio) {
+                showError('Please select a day of the week');
                 return;
             }
+            const selectedDay = selectedDayRadio.value;
 
             const today = new Date();
             const dayOfWeek = today.getDay();
-            const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
+            const dayMap = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+            const targetDayNum = dayMap[selectedDay];
+            const daysUntilTarget = (targetDayNum - dayOfWeek + 7) % 7 || 7;
             const gameDate = new Date(today);
-            gameDate.setDate(today.getDate() + daysUntilSat);
+            gameDate.setDate(today.getDate() + daysUntilTarget);
             const gameDateStr = gameDate.toISOString().split('T')[0];
 
             try {
-                // Ensure organizer exists before creating game
                 const organizerToken = await ensureOrganizer('Organizer');
 
                 const res = await fetch(`${API_BASE}/games`, {
@@ -257,7 +257,7 @@
                         game_date: gameDateStr,
                         min_players: minPlayers,
                         max_players: maxPlayers,
-                        selected_days: selectedDays
+                        selected_days: [selectedDay]
                     })
                 });
                 currentGame = await res.json();
