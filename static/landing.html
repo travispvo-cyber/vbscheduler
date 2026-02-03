@@ -284,15 +284,12 @@
             const minPlayers = venueObj?.min_players || 4;
             const maxPlayers = venueObj?.max_players || 12;
 
-            const selectedDays = [];
-            if (document.getElementById('day-saturday')?.checked) selectedDays.push('saturday');
-            if (document.getElementById('day-sunday')?.checked) selectedDays.push('sunday');
-
-            if (selectedDays.length === 0) {
-                showError('Please select at least one day');
-                document.getElementById('day-saturday').checked = true;
+            const selectedDayRadio = document.querySelector('input[name="day-of-week"]:checked');
+            if (!selectedDayRadio) {
+                showError('Please select a day of the week');
                 return;
             }
+            const selectedDay = selectedDayRadio.value;
 
             try {
                 const res = await fetch(`${API_BASE}/games/${currentGame.id}`, {
@@ -307,7 +304,7 @@
                         game_date: currentGame.game_date,
                         min_players: minPlayers,
                         max_players: maxPlayers,
-                        selected_days: selectedDays
+                        selected_days: [selectedDay]
                     })
                 });
                 currentGame = await res.json();
