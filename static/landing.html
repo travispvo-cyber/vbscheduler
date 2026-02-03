@@ -980,6 +980,181 @@
             const token = getOrganizerToken();
             return token ? { 'X-Organizer-Token': token } : {};
         }
+
+        // ============ PLAYER MANAGEMENT ============
+
+        let playerSuggestions = [];
+
+        async function loadPlayerSuggestions(query = '') {
+            const token = getOrganizerToken();
+            if (!token) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/organizers/${token}/player-history?q=${encodeURIComponent(query)}`);
+                if (res.ok) {
+                    playerSuggestions = await res.json();
+                }
+            } catch (e) {
+                console.error('Error loading suggestions:', e);
+            }
+        }
+
+        function showPlayerSuggestions() {
+            const container = document.getElementById('player-suggestions');
+            const input = document.getElementById('add-player-input');
+            if (!container || !input) return;
+            const query = input.value.toLowerCase();
+
+            const filtered = playerSuggestions.filter(name =>
+                name.toLowerCase().includes(query)
+            ).slice(0, 8);
+
+            if (filtered.length === 0 || !query) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.innerHTML = filtered.map(name => `
+                <div onclick="selectPlayerSuggestion('${name.replace(/'/g, "\\'")}')"
+                     class="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-sm">
+                    ${name}
+                </div>
+            `).join('');
+            container.classList.remove('hidden');
+        }
+
+        function selectPlayerSuggestion(name) {
+            document.getElementById('add-player-input').value = name;
+            document.getElementById('player-suggestions').classList.add('hidden');
+        }
+
+        async function addPlayerFromInput() {
+            if (!currentGame) return;
+
+            const input = document.getElementById('add-player-input');
+            const name = input.value.trim();
+            if (!name) {
+                showError('Please enter a player name');
+                return;
+            }
+
+            try {
+                await apiCall(`${API_BASE}/games/${currentGame.id}/players`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ name })
+                });
+                input.value = '';
+                showToast(`Added ${name}`);
+                await loadPlayers();
+                await loadPlayerSuggestions();
+            } catch (e) {
+                console.error('Error adding player:', e);
+            }
+        }
+
+        async function editPlayer(playerId, currentName) {
+            const newName = prompt('Edit player name:', currentName);
+            if (!newName || newName === currentName) return;
+
+            try {
+                await apiCall(`${API_BASE}/games/${currentGame.id}/players/${playerId}`, {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ name: newName.trim() })
+                });
+                showToast('Player updated');
+                await loadPlayers();
+            } catch (e) {
+                console.error('Error editing player:', e);
+            }
+        }
+
+        async function deletePlayer(playerId, playerName) {
+            if (!confirm(`Remove ${playerName} from this game?`)) return;
+
+            try {
+                await apiCall(`${API_BASE}/games/${currentGame.id}/players/${playerId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                showToast(`Removed ${playerName}`);
+                await loadPlayers();
+                await loadHeatmap();
+            } catch (e) {
+                console.error('Error deleting player:', e);
+            }
+        }
+
+        function renderManagePlayersList(players, availability) {
+            const container = document.getElementById('manage-players-list');
+            if (!container) return;
+
+            // Group availability by player
+            const playerAvail = {};
+            availability.forEach(a => {
+                if (!playerAvail[a.player_id]) playerAvail[a.player_id] = [];
+                playerAvail[a.player_id].push(a);
+            });
+
+            container.innerHTML = players.map(player => {
+                const avail = playerAvail[player.id] || [];
+                const hasSubmitted = avail.length > 0;
+                const statusIcon = hasSubmitted ? 'check_circle' : 'schedule';
+                const statusColor = hasSubmitted ? 'text-green-500' : 'text-yellow-500';
+                const statusText = hasSubmitted ? 'Submitted' : 'Pending';
+
+                return `
+                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined ${statusColor}">${statusIcon}</span>
+                        <div>
+                            <p class="font-medium text-sm text-[#111418] dark:text-white">${player.name}</p>
+                            <p class="text-xs text-gray-500">${statusText}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="editPlayer(${player.id}, '${player.name.replace(/'/g, "\\'")}')"
+                            class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors"
+                            title="Edit">
+                            <span class="material-symbols-outlined text-lg">edit</span>
+                        </button>
+                        <button onclick="deletePlayer(${player.id}, '${player.name.replace(/'/g, "\\'")}')"
+                            class="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-500 transition-colors"
+                            title="Delete">
+                            <span class="material-symbols-outlined text-lg">delete</span>
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // Setup autocomplete input listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            const input = document.getElementById('add-player-input');
+            if (input) {
+                input.addEventListener('input', () => {
+                    loadPlayerSuggestions(input.value);
+                    showPlayerSuggestions();
+                });
+                input.addEventListener('focus', async () => {
+                    await loadPlayerSuggestions(input.value);
+                    showPlayerSuggestions();
+                });
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        addPlayerFromInput();
+                    }
+                });
+            }
+
+            // Close suggestions on click outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#add-player-input') && !e.target.closest('#player-suggestions')) {
+                    document.getElementById('player-suggestions')?.classList.add('hidden');
+                }
+            });
+        });
     </script>
 </head>
 
