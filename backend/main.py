@@ -122,6 +122,29 @@ def get_organizer_games(organizer_id: str):
         return [GameResponse(**dict(row)) for row in rows]
 
 
+@app.get("/api/organizers/{organizer_id}/player-history")
+def get_player_history(organizer_id: str, q: str = ""):
+    """Get player name suggestions for autocomplete."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if q:
+            cursor.execute("""
+                SELECT player_name FROM player_history
+                WHERE organizer_id = %s AND player_name ILIKE %s
+                ORDER BY last_used DESC
+                LIMIT 20
+            """, (organizer_id, f"%{q}%"))
+        else:
+            cursor.execute("""
+                SELECT player_name FROM player_history
+                WHERE organizer_id = %s
+                ORDER BY last_used DESC
+                LIMIT 20
+            """, (organizer_id,))
+        rows = cursor.fetchall()
+        return [row["player_name"] for row in rows]
+
+
 # ============ GAMES ============
 
 @app.post("/api/games", response_model=GameResponse)
