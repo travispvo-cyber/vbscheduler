@@ -122,6 +122,29 @@ def get_organizer_games(organizer_id: str):
         return [GameResponse(**dict(row)) for row in rows]
 
 
+@app.get("/api/organizers/{organizer_id}/player-history")
+def get_player_history(organizer_id: str, q: str = ""):
+    """Get player name suggestions for autocomplete."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        if q:
+            cursor.execute("""
+                SELECT player_name FROM player_history
+                WHERE organizer_id = %s AND player_name ILIKE %s
+                ORDER BY last_used DESC
+                LIMIT 20
+            """, (organizer_id, f"%{q}%"))
+        else:
+            cursor.execute("""
+                SELECT player_name FROM player_history
+                WHERE organizer_id = %s
+                ORDER BY last_used DESC
+                LIMIT 20
+            """, (organizer_id,))
+        rows = cursor.fetchall()
+        return [row["player_name"] for row in rows]
+
+
 # ============ GAMES ============
 
 @app.post("/api/games", response_model=GameResponse)
@@ -268,12 +291,13 @@ def verify_organizer_pin(game_id: str, auth: OrganizerAuth):
 # ============ PLAYERS ============
 
 @app.post("/api/games/{game_id}/players", response_model=PlayerResponse)
-def add_player(game_id: str, player: PlayerCreate):
+def add_player(game_id: str, player: PlayerCreate, x_organizer_token: Optional[str] = Header(None)):
     with get_db() as conn:
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id FROM games WHERE id = %s", (game_id,))
-        if not cursor.fetchone():
+        cursor.execute("SELECT id, organizer_id FROM games WHERE id = %s", (game_id,))
+        game = cursor.fetchone()
+        if not game:
             raise HTTPException(status_code=404, detail="Game not found")
 
         cursor.execute("SELECT * FROM players WHERE game_id = %s AND name = %s", (game_id, player.name))
@@ -286,6 +310,16 @@ def add_player(game_id: str, player: PlayerCreate):
             (game_id, player.name, player.avatar_url)
         )
         row = cursor.fetchone()
+
+        # Record to player history for the game's organizer
+        if game["organizer_id"]:
+            cursor.execute("""
+                INSERT INTO player_history (organizer_id, player_name, last_used)
+                VALUES (%s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (organizer_id, player_name)
+                DO UPDATE SET last_used = CURRENT_TIMESTAMP
+            """, (game["organizer_id"], player.name))
+
         return PlayerResponse(**dict(row))
 
 
@@ -299,9 +333,19 @@ def get_players(game_id: str):
 
 
 @app.put("/api/games/{game_id}/players/{player_id}", response_model=PlayerResponse)
-def update_player(game_id: str, player_id: int, player: PlayerCreate):
+def update_player(game_id: str, player_id: int, player: PlayerCreate, x_organizer_token: Optional[str] = Header(None)):
     with get_db() as conn:
         cursor = conn.cursor()
+
+        # Verify game exists and check organizer auth
+        cursor.execute("SELECT organizer_id FROM games WHERE id = %s", (game_id,))
+        game = cursor.fetchone()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        is_organizer = x_organizer_token and game["organizer_id"] == x_organizer_token
+        if not is_organizer:
+            raise HTTPException(status_code=403, detail="Only the organizer can edit players")
 
         cursor.execute("SELECT * FROM players WHERE id = %s AND game_id = %s", (player_id, game_id))
         if not cursor.fetchone():
@@ -323,13 +367,59 @@ def update_player(game_id: str, player_id: int, player: PlayerCreate):
 
 
 @app.delete("/api/games/{game_id}/players/{player_id}")
-def delete_player(game_id: str, player_id: int):
+def delete_player(game_id: str, player_id: int, x_organizer_token: Optional[str] = Header(None)):
     with get_db() as conn:
         cursor = conn.cursor()
+
+        # Verify game exists and check organizer auth
+        cursor.execute("SELECT organizer_id FROM games WHERE id = %s", (game_id,))
+        game = cursor.fetchone()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        is_organizer = x_organizer_token and game["organizer_id"] == x_organizer_token
+        if not is_organizer:
+            raise HTTPException(status_code=403, detail="Only the organizer can delete players")
+
         cursor.execute("DELETE FROM players WHERE id = %s AND game_id = %s", (player_id, game_id))
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Player not found")
         return {"message": "Player deleted"}
+
+
+@app.put("/api/games/{game_id}/players/{player_id}/availability")
+def update_player_availability(
+    game_id: str,
+    player_id: int,
+    availability: AvailabilityBulkCreate,
+    x_organizer_token: Optional[str] = Header(None)
+):
+    """Organizer can update a player's availability."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT organizer_id FROM games WHERE id = %s", (game_id,))
+        game = cursor.fetchone()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        is_organizer = x_organizer_token and game["organizer_id"] == x_organizer_token
+        if not is_organizer:
+            raise HTTPException(status_code=403, detail="Only the organizer can edit player availability")
+
+        cursor.execute("SELECT id FROM players WHERE id = %s AND game_id = %s", (player_id, game_id))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Player not found")
+
+        for time_slot, status in availability.slots.items():
+            cursor.execute("""
+                INSERT INTO availability (game_id, player_id, day, time_slot, status)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT(game_id, player_id, day, time_slot)
+                DO UPDATE SET status = EXCLUDED.status, updated_at = CURRENT_TIMESTAMP
+            """, (game_id, player_id, availability.day, time_slot, status))
+
+        return {"message": "Availability updated"}
 
 
 # ============ AVAILABILITY ============

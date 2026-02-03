@@ -15,7 +15,7 @@ TIME_SLOTS = [
     "19:00", "20:00", "21:00", "22:00"
 ]
 
-DAYS = ["saturday", "sunday"]
+DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
 
 MAX_PLAYERS_DEFAULT = 12
 MAX_PLAYERS_MIN = 4

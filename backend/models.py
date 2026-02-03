@@ -28,10 +28,10 @@ class GameCreate(BaseModel):
     @field_validator('selected_days')
     @classmethod
     def validate_days(cls, v):
-        valid_days = {'saturday', 'sunday'}
+        valid_days = {'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'}
         for day in v:
             if day.lower() not in valid_days:
-                raise ValueError(f"Invalid day '{day}'. Must be 'saturday' or 'sunday'")
+                raise ValueError(f"Invalid day '{day}'. Must be a valid day of the week")
         return [d.lower() for d in v]
 
 
@@ -70,14 +70,14 @@ class PlayerResponse(BaseModel):
 
 class AvailabilityCreate(BaseModel):
     player_id: int
-    day: str = Field(..., pattern=r"^(saturday|sunday)$")
+    day: str = Field(..., pattern=r"^(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$")
     time_slot: str = Field(..., pattern=r"^\d{2}:\d{2}$")
     status: str = Field(..., pattern=r"^(available|unavailable)$")
 
 
 class AvailabilityBulkCreate(BaseModel):
     player_id: int
-    day: str = Field(..., pattern=r"^(saturday|sunday)$")
+    day: str = Field(..., pattern=r"^(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$")
     slots: dict[str, str]
 
     @field_validator('slots')

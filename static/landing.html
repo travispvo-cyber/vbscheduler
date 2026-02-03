@@ -60,6 +60,38 @@
             from { opacity: 0; transform: translateX(-50%) translateY(10px); }
             to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
+        /* Heatmap tooltip */
+        .heatmap-slot {
+            position: relative;
+        }
+        .heatmap-slot .tooltip {
+            visibility: hidden;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 100;
+            margin-bottom: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .heatmap-slot .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #1f2937;
+        }
+        .heatmap-slot:hover .tooltip {
+            visibility: visible;
+        }
     </style>
 <script>
         const API_BASE = '/api';
@@ -225,24 +257,24 @@
             const minPlayers = venueObj?.min_players || 4;
             const maxPlayers = venueObj?.max_players || 12;
 
-            const selectedDays = [];
-            if (document.getElementById('day-saturday')?.checked) selectedDays.push('saturday');
-            if (document.getElementById('day-sunday')?.checked) selectedDays.push('sunday');
-
-            if (selectedDays.length === 0) {
-                showError('Please select at least one day');
+            // Get selected day from radio buttons
+            const selectedDayRadio = document.querySelector('input[name="day-of-week"]:checked');
+            if (!selectedDayRadio) {
+                showError('Please select a day of the week');
                 return;
             }
+            const selectedDay = selectedDayRadio.value;
 
             const today = new Date();
             const dayOfWeek = today.getDay();
-            const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
+            const dayMap = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+            const targetDayNum = dayMap[selectedDay];
+            const daysUntilTarget = (targetDayNum - dayOfWeek + 7) % 7 || 7;
             const gameDate = new Date(today);
-            gameDate.setDate(today.getDate() + daysUntilSat);
+            gameDate.setDate(today.getDate() + daysUntilTarget);
             const gameDateStr = gameDate.toISOString().split('T')[0];
 
             try {
-                // Ensure organizer exists before creating game
                 const organizerToken = await ensureOrganizer('Organizer');
 
                 const res = await fetch(`${API_BASE}/games`, {
@@ -257,7 +289,7 @@
                         game_date: gameDateStr,
                         min_players: minPlayers,
                         max_players: maxPlayers,
-                        selected_days: selectedDays
+                        selected_days: [selectedDay]
                     })
                 });
                 currentGame = await res.json();
@@ -284,15 +316,12 @@
             const minPlayers = venueObj?.min_players || 4;
             const maxPlayers = venueObj?.max_players || 12;
 
-            const selectedDays = [];
-            if (document.getElementById('day-saturday')?.checked) selectedDays.push('saturday');
-            if (document.getElementById('day-sunday')?.checked) selectedDays.push('sunday');
-
-            if (selectedDays.length === 0) {
-                showError('Please select at least one day');
-                document.getElementById('day-saturday').checked = true;
+            const selectedDayRadio = document.querySelector('input[name="day-of-week"]:checked');
+            if (!selectedDayRadio) {
+                showError('Please select a day of the week');
                 return;
             }
+            const selectedDay = selectedDayRadio.value;
 
             try {
                 const res = await fetch(`${API_BASE}/games/${currentGame.id}`, {
@@ -307,7 +336,7 @@
                         game_date: currentGame.game_date,
                         min_players: minPlayers,
                         max_players: maxPlayers,
-                        selected_days: selectedDays
+                        selected_days: [selectedDay]
                     })
                 });
                 currentGame = await res.json();
@@ -325,7 +354,6 @@
             const titleInput = document.getElementById('game-title');
             titleInput.value = currentGame.title || '';
 
-            // Check if this device is the host
             const isHost = isHostOfGame(currentGame.id);
             if (isHost) {
                 titleInput.disabled = false;
@@ -335,7 +363,6 @@
                 titleInput.classList.add('bg-gray-100', 'dark:bg-gray-800', 'cursor-not-allowed', 'opacity-70');
             }
 
-            // Update venue dropdown if game loaded (match by name from config)
             const venueSelect = document.getElementById('venue-select');
             if (window.appConfig?.venues) {
                 const venueObj = window.appConfig.venues.find(v => v.name === currentGame.venue);
@@ -343,33 +370,29 @@
                     venueSelect.value = venueObj.id;
                 }
             }
-            // Update venue info text to match loaded game
             updateVenueInfo();
 
-            // Update day checkboxes based on game's selected_days
-            const selectedDays = currentGame.selected_days || ['saturday', 'sunday'];
-            document.getElementById('day-saturday').checked = selectedDays.includes('saturday');
-            document.getElementById('day-sunday').checked = selectedDays.includes('sunday');
-
-            // Update heatmap tabs visibility based on selected days
-            const satTab = document.getElementById('heatmap-sat-tab');
-            const sunTab = document.getElementById('heatmap-sun-tab');
-            if (satTab && sunTab) {
-                satTab.classList.toggle('hidden', !selectedDays.includes('saturday'));
-                sunTab.classList.toggle('hidden', !selectedDays.includes('sunday'));
-                // Set default heatmap day to first available
-                if (selectedDays.length > 0) {
-                    currentHeatmapDay = selectedDays[0];
-                    switchHeatmapDay(currentHeatmapDay);
-                }
+            // Update day radio button based on game's selected_days
+            const selectedDays = currentGame.selected_days || ['sunday'];
+            const selectedDay = selectedDays[0]; // Single day
+            const radioBtn = document.querySelector(`input[name="day-of-week"][value="${selectedDay}"]`);
+            if (radioBtn) {
+                radioBtn.checked = true;
             }
 
-            // Show share button, hide create button
+            // Hide heatmap day tabs - only one day now
+            const satTab = document.getElementById('heatmap-sat-tab');
+            const sunTab = document.getElementById('heatmap-sun-tab');
+            if (satTab) satTab.classList.add('hidden');
+            if (sunTab) sunTab.classList.add('hidden');
+
+            // Set heatmap day to the selected day
+            currentHeatmapDay = selectedDay;
+
             document.getElementById('create-game-btn').classList.add('hidden');
             document.getElementById('share-link-btn').classList.remove('hidden');
             document.getElementById('share-link-btn').classList.add('flex');
 
-            // Update tab navigation
             updateTabNav();
         }
 
@@ -407,6 +430,18 @@
                 const availability = await availRes.json();
 
                 renderRoster(players, availability);
+
+                // Show management section for organizers
+                const isHost = isHostOfGame(currentGame.id);
+                const manageSection = document.getElementById('manage-players-section');
+                if (manageSection) {
+                    if (isHost && players.length > 0) {
+                        manageSection.classList.remove('hidden');
+                        renderManagePlayersList(players, availability);
+                    } else {
+                        manageSection.classList.add('hidden');
+                    }
+                }
 
                 // Show and load heatmap if we have players
                 if (players.length > 0) {
@@ -448,7 +483,6 @@
             const minPlayers = currentGame?.min_players || 4;
             const dayData = heatmapData.find(d => d.day === currentHeatmapDay);
 
-            // Build slot lookup for quick access
             const slotLookup = {};
             if (dayData) {
                 dayData.slots.forEach(s => {
@@ -456,7 +490,6 @@
                 });
             }
 
-            // Find best slot for highlighting
             let bestSlot = null;
             let bestCount = 0;
             if (dayData) {
@@ -476,67 +509,49 @@
                 const slotData = slotLookup[slot] || { available_count: 0, total_count: 0, available_players: [] };
                 const availCount = slotData.available_count;
 
-                // Calculate progress toward minimum requirement (0 to 1+)
                 const progressRatio = minPlayers > 0 ? availCount / minPlayers : 0;
                 const isBestSlot = bestSlot && bestSlot.time_slot === slot && bestCount > 0;
                 const meetsRequirement = availCount >= minPlayers;
 
-                // Gradient color scheme based on progress toward min players
-                let barColor, borderColor, textColor, barWidth;
+                let barColor, borderColor, textColor;
 
                 if (meetsRequirement) {
-                    // GREEN - requirement met!
                     barColor = isBestSlot ? 'bg-emerald-500' : 'bg-emerald-400';
                     borderColor = isBestSlot ? 'border-yellow-400' : 'border-emerald-600';
                     textColor = 'text-white';
-                    barWidth = '100%';
                 } else if (progressRatio >= 0.75) {
-                    // Almost there - dark blue
                     barColor = 'bg-blue-500';
                     borderColor = 'border-blue-600';
                     textColor = 'text-white';
-                    barWidth = '100%';
                 } else if (progressRatio >= 0.5) {
-                    // Halfway - medium blue
                     barColor = 'bg-blue-400';
                     borderColor = 'border-blue-500';
                     textColor = 'text-white';
-                    barWidth = '100%';
                 } else if (progressRatio >= 0.25) {
-                    // Quarter way - light blue
                     barColor = 'bg-blue-300';
                     borderColor = 'border-blue-400';
                     textColor = 'text-blue-800';
-                    barWidth = '100%';
                 } else if (progressRatio > 0) {
-                    // Just started - very light blue
                     barColor = 'bg-blue-200';
                     borderColor = 'border-blue-300';
                     textColor = 'text-blue-700';
-                    barWidth = '100%';
                 } else {
-                    // Empty
                     barColor = 'bg-slate-100 dark:bg-slate-800';
                     borderColor = 'border-slate-200 dark:border-slate-700';
                     textColor = 'text-slate-400';
-                    barWidth = '100%';
                 }
 
-                // Best slot gets gold highlight
                 if (isBestSlot && bestCount > 0) {
                     borderColor = 'border-yellow-400';
                 }
 
-                // Player names tooltip
-                const playerNames = slotData.available_players?.length > 0
-                    ? slotData.available_players.join(', ')
-                    : 'No one available';
+                const playerNames = slotData.available_players || [];
+                const playerList = playerNames.length > 0 ? playerNames.join(', ') : 'No one available';
                 const rowBg = isBestSlot ? 'bg-emerald-50/50 dark:bg-emerald-900/10' : '';
                 const timeStyle = isBestSlot
                     ? 'font-bold text-emerald-600 dark:text-emerald-400'
                     : 'font-medium text-slate-600 dark:text-slate-400';
 
-                // Status indicator
                 const statusIcon = meetsRequirement
                     ? '<span class="material-symbols-outlined text-xs text-white ml-1">check_circle</span>'
                     : '';
@@ -545,10 +560,10 @@
                 <div class="grid grid-cols-12 items-center ${rowBg} ${idx < timeSlots.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}">
                     <div class="col-span-3 p-3 text-sm ${timeStyle}">${displayTime}</div>
                     <div class="col-span-9 p-2 pr-4">
-                        <div class="w-full h-9 rounded-lg ${barColor} flex items-center justify-between px-3 border-l-4 ${borderColor} ${isBestSlot ? 'shadow-md ring-2 ring-yellow-400/30' : ''}"
-                             title="${playerNames}">
+                        <div class="heatmap-slot w-full h-9 rounded-lg ${barColor} flex items-center justify-between px-3 border-l-4 ${borderColor} ${isBestSlot ? 'shadow-md ring-2 ring-yellow-400/30' : ''} cursor-pointer">
                             <span class="text-xs font-bold ${textColor}">${availCount}/${minPlayers}${statusIcon}</span>
-                            <span class="text-[10px] ${textColor} opacity-75 truncate ml-2 max-w-[120px]">${availCount > 0 ? playerNames : ''}</span>
+                            <span class="text-[10px] ${textColor} opacity-75 truncate ml-2 max-w-[120px]">${availCount > 0 ? playerList : ''}</span>
+                            <div class="tooltip">${availCount} available: ${playerList}</div>
                         </div>
                     </div>
                 </div>`;
@@ -577,7 +592,6 @@
                     suggestedEl.textContent = `${dayLabel} @ ${displayTime} — ${bestCount} players`;
                 }
 
-                // Update banner color based on whether requirement is met
                 if (bannerEl) {
                     if (meetsMin) {
                         bannerEl.className = 'bg-gradient-to-br from-emerald-500 to-emerald-700 p-5 rounded-2xl shadow-lg border-2 border-yellow-400/30 relative overflow-hidden';
@@ -931,8 +945,9 @@
             init();
 
             // Auto-save when host changes settings
-            document.getElementById('day-saturday').addEventListener('change', saveGameSettings);
-            document.getElementById('day-sunday').addEventListener('change', saveGameSettings);
+            document.querySelectorAll('input[name="day-of-week"]').forEach(radio => {
+                radio.addEventListener('change', saveGameSettings);
+            });
             document.getElementById('game-title').addEventListener('blur', saveGameSettings);
             document.getElementById('venue-select').addEventListener('change', saveGameSettings);
         });
@@ -977,6 +992,181 @@
             const token = getOrganizerToken();
             return token ? { 'X-Organizer-Token': token } : {};
         }
+
+        // ============ PLAYER MANAGEMENT ============
+
+        let playerSuggestions = [];
+
+        async function loadPlayerSuggestions(query = '') {
+            const token = getOrganizerToken();
+            if (!token) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/organizers/${token}/player-history?q=${encodeURIComponent(query)}`);
+                if (res.ok) {
+                    playerSuggestions = await res.json();
+                }
+            } catch (e) {
+                console.error('Error loading suggestions:', e);
+            }
+        }
+
+        function showPlayerSuggestions() {
+            const container = document.getElementById('player-suggestions');
+            const input = document.getElementById('add-player-input');
+            if (!container || !input) return;
+            const query = input.value.toLowerCase();
+
+            const filtered = playerSuggestions.filter(name =>
+                name.toLowerCase().includes(query)
+            ).slice(0, 8);
+
+            if (filtered.length === 0 || !query) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.innerHTML = filtered.map(name => `
+                <div onclick="selectPlayerSuggestion('${name.replace(/'/g, "\\'")}')"
+                     class="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-sm">
+                    ${name}
+                </div>
+            `).join('');
+            container.classList.remove('hidden');
+        }
+
+        function selectPlayerSuggestion(name) {
+            document.getElementById('add-player-input').value = name;
+            document.getElementById('player-suggestions').classList.add('hidden');
+        }
+
+        async function addPlayerFromInput() {
+            if (!currentGame) return;
+
+            const input = document.getElementById('add-player-input');
+            const name = input.value.trim();
+            if (!name) {
+                showError('Please enter a player name');
+                return;
+            }
+
+            try {
+                await apiCall(`${API_BASE}/games/${currentGame.id}/players`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ name })
+                });
+                input.value = '';
+                showToast(`Added ${name}`);
+                await loadPlayers();
+                await loadPlayerSuggestions();
+            } catch (e) {
+                console.error('Error adding player:', e);
+            }
+        }
+
+        async function editPlayer(playerId, currentName) {
+            const newName = prompt('Edit player name:', currentName);
+            if (!newName || newName === currentName) return;
+
+            try {
+                await apiCall(`${API_BASE}/games/${currentGame.id}/players/${playerId}`, {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ name: newName.trim() })
+                });
+                showToast('Player updated');
+                await loadPlayers();
+            } catch (e) {
+                console.error('Error editing player:', e);
+            }
+        }
+
+        async function deletePlayer(playerId, playerName) {
+            if (!confirm(`Remove ${playerName} from this game?`)) return;
+
+            try {
+                await apiCall(`${API_BASE}/games/${currentGame.id}/players/${playerId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                showToast(`Removed ${playerName}`);
+                await loadPlayers();
+                await loadHeatmap();
+            } catch (e) {
+                console.error('Error deleting player:', e);
+            }
+        }
+
+        function renderManagePlayersList(players, availability) {
+            const container = document.getElementById('manage-players-list');
+            if (!container) return;
+
+            // Group availability by player
+            const playerAvail = {};
+            availability.forEach(a => {
+                if (!playerAvail[a.player_id]) playerAvail[a.player_id] = [];
+                playerAvail[a.player_id].push(a);
+            });
+
+            container.innerHTML = players.map(player => {
+                const avail = playerAvail[player.id] || [];
+                const hasSubmitted = avail.length > 0;
+                const statusIcon = hasSubmitted ? 'check_circle' : 'schedule';
+                const statusColor = hasSubmitted ? 'text-green-500' : 'text-yellow-500';
+                const statusText = hasSubmitted ? 'Submitted' : 'Pending';
+
+                return `
+                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined ${statusColor}">${statusIcon}</span>
+                        <div>
+                            <p class="font-medium text-sm text-[#111418] dark:text-white">${player.name}</p>
+                            <p class="text-xs text-gray-500">${statusText}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="editPlayer(${player.id}, '${player.name.replace(/'/g, "\\'")}')"
+                            class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors"
+                            title="Edit">
+                            <span class="material-symbols-outlined text-lg">edit</span>
+                        </button>
+                        <button onclick="deletePlayer(${player.id}, '${player.name.replace(/'/g, "\\'")}')"
+                            class="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-500 transition-colors"
+                            title="Delete">
+                            <span class="material-symbols-outlined text-lg">delete</span>
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // Setup autocomplete input listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            const input = document.getElementById('add-player-input');
+            if (input) {
+                input.addEventListener('input', () => {
+                    loadPlayerSuggestions(input.value);
+                    showPlayerSuggestions();
+                });
+                input.addEventListener('focus', async () => {
+                    await loadPlayerSuggestions(input.value);
+                    showPlayerSuggestions();
+                });
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        addPlayerFromInput();
+                    }
+                });
+            }
+
+            // Close suggestions on click outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#add-player-input') && !e.target.closest('#player-suggestions')) {
+                    document.getElementById('player-suggestions')?.classList.add('hidden');
+                }
+            });
+        });
     </script>
 </head>
 
@@ -1011,22 +1201,50 @@
                     class="flex w-full rounded-xl text-[#111418] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 h-12 px-4 text-base" />
             </label>
         </div>
-        <!-- Date Selection (Checkboxes) -->
+        <!-- Day Selection (Radio Buttons) -->
         <div class="px-4 py-4">
-            <p class="text-[#111418] dark:text-white text-base font-medium leading-normal pb-3">Select Days</p>
-            <div class="flex gap-3">
-                <label class="flex-1 cursor-pointer">
-                    <input type="checkbox" id="day-saturday" checked class="peer sr-only" />
-                    <div class="flex items-center justify-center gap-2 h-12 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#617589] peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary font-semibold transition-all">
-                        <span class="material-symbols-outlined text-sm peer-checked:block hidden">check_circle</span>
-                        Saturday
+            <p class="text-[#111418] dark:text-white text-base font-medium leading-normal pb-3">Day of the Week</p>
+            <div class="grid grid-cols-4 gap-2">
+                <label class="cursor-pointer">
+                    <input type="radio" name="day-of-week" value="sunday" class="peer sr-only" />
+                    <div class="flex items-center justify-center h-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#617589] peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary font-semibold text-sm transition-all">
+                        Sun
                     </div>
                 </label>
-                <label class="flex-1 cursor-pointer">
-                    <input type="checkbox" id="day-sunday" checked class="peer sr-only" />
-                    <div class="flex items-center justify-center gap-2 h-12 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#617589] peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary font-semibold transition-all">
-                        <span class="material-symbols-outlined text-sm peer-checked:block hidden">check_circle</span>
-                        Sunday
+                <label class="cursor-pointer">
+                    <input type="radio" name="day-of-week" value="monday" class="peer sr-only" />
+                    <div class="flex items-center justify-center h-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#617589] peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary font-semibold text-sm transition-all">
+                        Mon
+                    </div>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="radio" name="day-of-week" value="tuesday" class="peer sr-only" />
+                    <div class="flex items-center justify-center h-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#617589] peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary font-semibold text-sm transition-all">
+                        Tue
+                    </div>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="radio" name="day-of-week" value="wednesday" class="peer sr-only" />
+                    <div class="flex items-center justify-center h-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#617589] peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary font-semibold text-sm transition-all">
+                        Wed
+                    </div>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="radio" name="day-of-week" value="thursday" class="peer sr-only" />
+                    <div class="flex items-center justify-center h-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#617589] peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary font-semibold text-sm transition-all">
+                        Thu
+                    </div>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="radio" name="day-of-week" value="friday" class="peer sr-only" />
+                    <div class="flex items-center justify-center h-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#617589] peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary font-semibold text-sm transition-all">
+                        Fri
+                    </div>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="radio" name="day-of-week" value="saturday" class="peer sr-only" />
+                    <div class="flex items-center justify-center h-10 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#617589] peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:text-primary font-semibold text-sm transition-all">
+                        Sat
                     </div>
                 </label>
             </div>
@@ -1118,6 +1336,38 @@
                     <span class="material-symbols-outlined text-sm">edit_calendar</span>
                     Update your availability
                 </button>
+            </div>
+        </div>
+
+        <!-- Manage Players Section (Organizer Only) -->
+        <div id="manage-players-section" class="hidden pt-6">
+            <div class="flex items-center justify-between px-4 pb-3">
+                <h3 class="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">Manage Players</h3>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Organizer only</span>
+            </div>
+
+            <!-- Add Player Input -->
+            <div class="px-4 pb-4">
+                <div class="flex gap-2">
+                    <div class="relative flex-1">
+                        <input type="text" id="add-player-input" placeholder="Search or type name..."
+                            class="w-full h-12 px-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[#111418] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50"
+                            autocomplete="off" />
+                        <div id="player-suggestions" class="hidden absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto">
+                            <!-- Suggestions populated dynamically -->
+                        </div>
+                    </div>
+                    <button onclick="addPlayerFromInput()"
+                        class="h-12 px-4 bg-primary text-white rounded-xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-colors">
+                        <span class="material-symbols-outlined text-sm">person_add</span>
+                        Add
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player List -->
+            <div id="manage-players-list" class="px-4 space-y-2">
+                <!-- Players populated dynamically -->
             </div>
         </div>
 
