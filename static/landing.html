@@ -471,7 +471,6 @@
             const minPlayers = currentGame?.min_players || 4;
             const dayData = heatmapData.find(d => d.day === currentHeatmapDay);
 
-            // Build slot lookup for quick access
             const slotLookup = {};
             if (dayData) {
                 dayData.slots.forEach(s => {
@@ -479,7 +478,6 @@
                 });
             }
 
-            // Find best slot for highlighting
             let bestSlot = null;
             let bestCount = 0;
             if (dayData) {
@@ -499,67 +497,49 @@
                 const slotData = slotLookup[slot] || { available_count: 0, total_count: 0, available_players: [] };
                 const availCount = slotData.available_count;
 
-                // Calculate progress toward minimum requirement (0 to 1+)
                 const progressRatio = minPlayers > 0 ? availCount / minPlayers : 0;
                 const isBestSlot = bestSlot && bestSlot.time_slot === slot && bestCount > 0;
                 const meetsRequirement = availCount >= minPlayers;
 
-                // Gradient color scheme based on progress toward min players
-                let barColor, borderColor, textColor, barWidth;
+                let barColor, borderColor, textColor;
 
                 if (meetsRequirement) {
-                    // GREEN - requirement met!
                     barColor = isBestSlot ? 'bg-emerald-500' : 'bg-emerald-400';
                     borderColor = isBestSlot ? 'border-yellow-400' : 'border-emerald-600';
                     textColor = 'text-white';
-                    barWidth = '100%';
                 } else if (progressRatio >= 0.75) {
-                    // Almost there - dark blue
                     barColor = 'bg-blue-500';
                     borderColor = 'border-blue-600';
                     textColor = 'text-white';
-                    barWidth = '100%';
                 } else if (progressRatio >= 0.5) {
-                    // Halfway - medium blue
                     barColor = 'bg-blue-400';
                     borderColor = 'border-blue-500';
                     textColor = 'text-white';
-                    barWidth = '100%';
                 } else if (progressRatio >= 0.25) {
-                    // Quarter way - light blue
                     barColor = 'bg-blue-300';
                     borderColor = 'border-blue-400';
                     textColor = 'text-blue-800';
-                    barWidth = '100%';
                 } else if (progressRatio > 0) {
-                    // Just started - very light blue
                     barColor = 'bg-blue-200';
                     borderColor = 'border-blue-300';
                     textColor = 'text-blue-700';
-                    barWidth = '100%';
                 } else {
-                    // Empty
                     barColor = 'bg-slate-100 dark:bg-slate-800';
                     borderColor = 'border-slate-200 dark:border-slate-700';
                     textColor = 'text-slate-400';
-                    barWidth = '100%';
                 }
 
-                // Best slot gets gold highlight
                 if (isBestSlot && bestCount > 0) {
                     borderColor = 'border-yellow-400';
                 }
 
-                // Player names tooltip
-                const playerNames = slotData.available_players?.length > 0
-                    ? slotData.available_players.join(', ')
-                    : 'No one available';
+                const playerNames = slotData.available_players || [];
+                const playerList = playerNames.length > 0 ? playerNames.join(', ') : 'No one available';
                 const rowBg = isBestSlot ? 'bg-emerald-50/50 dark:bg-emerald-900/10' : '';
                 const timeStyle = isBestSlot
                     ? 'font-bold text-emerald-600 dark:text-emerald-400'
                     : 'font-medium text-slate-600 dark:text-slate-400';
 
-                // Status indicator
                 const statusIcon = meetsRequirement
                     ? '<span class="material-symbols-outlined text-xs text-white ml-1">check_circle</span>'
                     : '';
@@ -568,10 +548,10 @@
                 <div class="grid grid-cols-12 items-center ${rowBg} ${idx < timeSlots.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}">
                     <div class="col-span-3 p-3 text-sm ${timeStyle}">${displayTime}</div>
                     <div class="col-span-9 p-2 pr-4">
-                        <div class="w-full h-9 rounded-lg ${barColor} flex items-center justify-between px-3 border-l-4 ${borderColor} ${isBestSlot ? 'shadow-md ring-2 ring-yellow-400/30' : ''}"
-                             title="${playerNames}">
+                        <div class="heatmap-slot w-full h-9 rounded-lg ${barColor} flex items-center justify-between px-3 border-l-4 ${borderColor} ${isBestSlot ? 'shadow-md ring-2 ring-yellow-400/30' : ''} cursor-pointer">
                             <span class="text-xs font-bold ${textColor}">${availCount}/${minPlayers}${statusIcon}</span>
-                            <span class="text-[10px] ${textColor} opacity-75 truncate ml-2 max-w-[120px]">${availCount > 0 ? playerNames : ''}</span>
+                            <span class="text-[10px] ${textColor} opacity-75 truncate ml-2 max-w-[120px]">${availCount > 0 ? playerList : ''}</span>
+                            <div class="tooltip">${availCount} available: ${playerList}</div>
                         </div>
                     </div>
                 </div>`;
@@ -600,7 +580,6 @@
                     suggestedEl.textContent = `${dayLabel} @ ${displayTime} — ${bestCount} players`;
                 }
 
-                // Update banner color based on whether requirement is met
                 if (bannerEl) {
                     if (meetsMin) {
                         bannerEl.className = 'bg-gradient-to-br from-emerald-500 to-emerald-700 p-5 rounded-2xl shadow-lg border-2 border-yellow-400/30 relative overflow-hidden';
