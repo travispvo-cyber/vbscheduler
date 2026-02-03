@@ -431,6 +431,18 @@
 
                 renderRoster(players, availability);
 
+                // Show management section for organizers
+                const isHost = isHostOfGame(currentGame.id);
+                const manageSection = document.getElementById('manage-players-section');
+                if (manageSection) {
+                    if (isHost && players.length > 0) {
+                        manageSection.classList.remove('hidden');
+                        renderManagePlayersList(players, availability);
+                    } else {
+                        manageSection.classList.add('hidden');
+                    }
+                }
+
                 // Show and load heatmap if we have players
                 if (players.length > 0) {
                     document.getElementById('heatmap-section')?.classList.remove('hidden');
